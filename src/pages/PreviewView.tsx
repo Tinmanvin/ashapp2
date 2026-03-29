@@ -124,7 +124,7 @@ export default function PreviewView() {
   return (
     <div className="flex h-full">
       {/* Left Icon Strip */}
-      <div className="w-20 shrink-0 border-r border-border bg-sidebar flex flex-col items-center py-6 gap-3">
+      <div className="w-20 shrink-0 border-r border-border bg-sidebar/80 backdrop-blur-xl flex flex-col items-center py-6 gap-3">
         {platformTabs.map((p) => (
           <button
             key={p.name}
