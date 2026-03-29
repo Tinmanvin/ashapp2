@@ -43,14 +43,14 @@ export default function AppLayout() {
         alt=""
         className="pointer-events-none fixed inset-0 z-0 h-full w-full object-cover"
       />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-background/70" />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-background/50" />
 
       {/* Left Sidebar */}
       <motion.aside
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 flex w-[220px] flex-col border-r border-border bg-sidebar/80 backdrop-blur-xl shrink-0"
+        className="relative z-10 flex w-[220px] flex-col glass-panel border-r-0 shrink-0"
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 py-5">
