@@ -83,13 +83,13 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="hidden lg:flex items-center gap-4">
-              <div className="relative h-32 w-48 rounded-xl bg-elevated overflow-hidden">
+              <div className="relative h-32 w-48 rounded-xl card-elevated overflow-hidden">
                 <div className="absolute inset-0 atmospheric-glow" />
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Play className="h-10 w-10 text-accent-violet/60" />
                 </div>
               </div>
-              <div className="flex items-center gap-2 rounded-full bg-elevated/80 px-3 py-1.5">
+              <div className="flex items-center gap-2 rounded-full glass-button px-3 py-1.5">
                 <div className="h-2 w-2 rounded-full bg-platform-x" />
                 <span className="font-mono text-micro text-muted-foreground">X · 10:00 AM</span>
               </div>
@@ -118,23 +118,23 @@ export default function Dashboard() {
                 whileHover={{ scale: 1.15 }}
                 className={`aspect-square rounded-md transition-colors cursor-pointer ${
                   status === "full"
-                    ? "bg-accent-violet/80"
+                    ? "glass-accent"
                     : status === "partial"
-                    ? "bg-accent-violet/30"
-                    : "bg-elevated"
+                    ? "bg-accent-violet/20 border border-accent-violet/20"
+                    : "glass-button"
                 }`}
               />
             ))}
           </div>
           <div className="mt-4 flex items-center gap-4">
             <span className="flex items-center gap-1.5 font-mono text-micro text-muted-foreground">
-              <span className="h-2 w-2 rounded-sm bg-elevated" /> Empty
+              <span className="h-2 w-2 rounded-sm glass-button" /> Empty
             </span>
             <span className="flex items-center gap-1.5 font-mono text-micro text-muted-foreground">
               <span className="h-2 w-2 rounded-sm bg-accent-violet/30" /> Partial
             </span>
             <span className="flex items-center gap-1.5 font-mono text-micro text-muted-foreground">
-              <span className="h-2 w-2 rounded-sm bg-accent-violet/80" /> Full
+              <span className="h-2 w-2 rounded-sm glass-accent" /> Full
             </span>
           </div>
         </motion.div>
@@ -161,7 +161,7 @@ export default function Dashboard() {
               {[35, 42, 38, 55, 48, 62].map((v, i) => (
                 <div
                   key={i}
-                  className="flex-1 rounded-sm bg-accent-violet/40"
+                  className="flex-1 rounded-sm bg-accent-violet/30 border border-accent-violet/20"
                   style={{ height: `${v}%` }}
                 />
               ))}
@@ -185,7 +185,7 @@ export default function Dashboard() {
               <motion.div
                 key={asset.id}
                 whileHover={{ scale: 1.03 }}
-                className="group relative flex-shrink-0 w-36 h-24 rounded-xl bg-elevated overflow-hidden cursor-pointer"
+                className="group relative flex-shrink-0 w-36 h-24 rounded-xl card-elevated overflow-hidden cursor-pointer"
               >
                 <div className="absolute inset-0 atmospheric-glow opacity-50" />
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -201,7 +201,7 @@ export default function Dashboard() {
                   <span className="text-micro text-foreground font-mono">{asset.name}</span>
                 </div>
                 <div className="absolute top-2 right-2">
-                  <span className="rounded-md bg-elevated/80 px-1.5 py-0.5 text-micro font-mono text-muted-foreground">
+                  <span className="rounded-md glass-button px-1.5 py-0.5 text-micro font-mono text-muted-foreground">
                     {asset.type}
                   </span>
                 </div>
@@ -220,7 +220,7 @@ export default function Dashboard() {
             {platformStats.map((p) => (
               <div key={p.name} className="flex items-center gap-3">
                 <span className="w-24 text-body font-satoshi text-foreground truncate">{p.name}</span>
-                <div className="flex-1 h-3 rounded-full bg-elevated overflow-hidden">
+                <div className="flex-1 h-3 rounded-full glass-button overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: p.width }}
@@ -249,9 +249,9 @@ export default function Dashboard() {
             {upcomingPosts.map((post, i) => (
               <div
                 key={i}
-                className="flex items-center gap-3 rounded-lg bg-elevated/50 p-3 transition-colors hover:bg-elevated"
+                className="flex items-center gap-3 rounded-lg glass-button p-3 transition-colors"
               >
-                <div className="h-10 w-10 rounded-lg bg-elevated flex items-center justify-center shrink-0">
+                <div className="h-10 w-10 rounded-lg card-elevated flex items-center justify-center shrink-0">
                   <Play className="h-4 w-4 text-muted-foreground/60" />
                 </div>
                 <span className={`shrink-0 rounded-md px-2 py-0.5 text-micro font-mono font-medium ${post.platformColor}`}>

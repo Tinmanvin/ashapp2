@@ -47,7 +47,7 @@ export default function Scheduler() {
         </div>
 
         <div className="px-3 mb-3">
-          <button className="w-full rounded-full bg-elevated px-4 py-2 text-body text-accent-violet font-medium flex items-center justify-center gap-2 hover:bg-elevated/80 transition-colors border border-border/50">
+          <button className="w-full rounded-full glass-button px-4 py-2 text-body text-accent-violet font-medium flex items-center justify-center gap-2 transition-colors">
             <Sparkles className="h-3.5 w-3.5" /> Auto-fill suggestions
           </button>
         </div>
@@ -63,7 +63,7 @@ export default function Scheduler() {
                 <div className="mt-0.5">
                   <GripVertical className="h-4 w-4 text-muted-foreground/40" />
                 </div>
-                <div className="h-12 w-12 rounded-lg bg-elevated flex items-center justify-center shrink-0">
+                <div className="h-12 w-12 rounded-lg card-elevated flex items-center justify-center shrink-0">
                   <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -74,7 +74,7 @@ export default function Scheduler() {
                       return (
                         <span
                           key={p}
-                          className={`h-4 w-4 rounded-full text-micro flex items-center justify-center font-bold ${pi?.color || "bg-elevated text-muted-foreground"}`}
+                          className={`h-4 w-4 rounded-full text-micro flex items-center justify-center font-bold ${pi?.color || "glass-button text-muted-foreground"}`}
                         >
                           {p[0]}
                         </span>
@@ -90,7 +90,7 @@ export default function Scheduler() {
           ))}
         </div>
 
-        <div className="border-t border-border px-5 py-3">
+        <div className="border-t border-white/[0.08] px-5 py-3">
           <span className="font-mono text-micro text-muted-foreground">
             5 assets ready
           </span>
@@ -100,18 +100,18 @@ export default function Scheduler() {
       {/* Calendar Canvas */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Month header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <button className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-elevated">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+          <button className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <span className="font-clash text-section font-bold text-foreground">{month}</span>
-          <button className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-elevated">
+          <button className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button">
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-border">
+        <div className="grid grid-cols-7 border-b border-white/[0.08]">
           {daysOfWeek.map((d) => (
             <div key={d} className="px-2 py-2 text-center font-mono text-micro text-muted-foreground">
               {d}
@@ -124,8 +124,8 @@ export default function Scheduler() {
           {calendarDays.map((day) => (
             <motion.div
               key={day.day}
-              whileHover={{ backgroundColor: "hsl(240 7% 11%)" }}
-              className={`border-r border-b border-border p-2 flex flex-col transition-colors ${
+              whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+              className={`border-r border-b border-white/[0.06] p-2 flex flex-col transition-colors ${
                 day.isFull ? "bg-accent-violet/[0.06]" : ""
               } ${day.isPast ? "opacity-50" : ""}`}
             >
@@ -145,12 +145,12 @@ export default function Scheduler() {
                     className={`relative h-6 w-6 rounded-md flex items-center justify-center text-micro font-bold transition-all ${
                       day.scheduled[pi]
                         ? p.color
-                        : "bg-elevated/50 text-muted-foreground/30"
+                        : "glass-button text-muted-foreground/30"
                     }`}
                   >
                     {p.name}
                     {day.scheduled[pi] && (
-                      <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-accent-violet text-[9px] text-white flex items-center justify-center font-bold">
+                      <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full glass-accent text-[9px] text-white flex items-center justify-center font-bold">
                         {Math.ceil(Math.random() * 5)}
                       </span>
                     )}
@@ -162,15 +162,15 @@ export default function Scheduler() {
         </div>
 
         {/* Bottom bar */}
-        <div className="flex items-center justify-between px-6 py-3 border-t border-border">
+        <div className="flex items-center justify-between px-6 py-3 border-t border-white/[0.08]">
           <span className="font-mono text-body text-muted-foreground">
             48 posts · 4 platforms · 14 days covered
           </span>
           <div className="flex items-center gap-3">
-            <button className="rounded-full border border-border px-4 py-2 text-body text-muted-foreground hover:text-foreground hover:border-foreground/20 transition-colors flex items-center gap-2">
+            <button className="rounded-full glass-button px-4 py-2 text-body text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
               <FileSpreadsheet className="h-3.5 w-3.5" /> Export to Sheets
             </button>
-            <button className="rounded-full bg-accent-violet px-5 py-2 text-body font-medium text-white hover:brightness-110 transition-all flex items-center gap-2">
+            <button className="rounded-full glass-accent px-5 py-2 text-body font-medium text-white transition-all flex items-center gap-2">
               <Send className="h-3.5 w-3.5" /> Publish on Schedule
             </button>
           </div>

@@ -43,7 +43,7 @@ export default function AppLayout() {
         alt=""
         className="pointer-events-none fixed inset-0 z-0 h-full w-full object-cover"
       />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-background/50" />
+      <div className="pointer-events-none fixed inset-0 z-0 bg-background/30" />
 
       {/* Left Sidebar */}
       <motion.aside

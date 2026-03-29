@@ -49,7 +49,7 @@ export default function ProcessingHub() {
         <div className="flex items-center gap-3 px-5 py-5">
           <button
             onClick={() => navigate("/library")}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-elevated transition-colors"
+            className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -63,11 +63,11 @@ export default function ProcessingHub() {
               onClick={() => setActiveAsset(i)}
               className={`w-full flex items-center gap-3 rounded-xl p-3 mb-1 transition-all ${
                 activeAsset === i
-                  ? "bg-elevated border-l-[3px] border-accent-violet"
-                  : "hover:bg-elevated/50"
+                  ? "card-elevated border-l-[3px] border-accent-violet"
+                  : "hover:bg-white/[0.04]"
               }`}
             >
-              <div className="h-[60px] w-[60px] rounded-lg bg-elevated flex items-center justify-center shrink-0">
+              <div className="h-[60px] w-[60px] rounded-lg card-elevated flex items-center justify-center shrink-0">
                 <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
               </div>
               <div className="flex-1 text-left min-w-0">
@@ -93,7 +93,7 @@ export default function ProcessingHub() {
           ))}
         </div>
 
-        <div className="border-t border-border px-5 py-3">
+        <div className="border-t border-white/[0.08] px-5 py-3">
           <span className="font-mono text-micro text-muted-foreground">
             6 assets · 4 platforms · 24 captions
           </span>
@@ -102,13 +102,13 @@ export default function ProcessingHub() {
 
       {/* Center Canvas — Caption Review */}
       <div className="flex-1 overflow-auto">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
           <span className="font-mono text-body text-muted-foreground">
             18 / 24 reviewed
           </span>
           <button
             onClick={() => navigate("/preview")}
-            className="rounded-full bg-accent-violet px-5 py-2 text-body font-medium text-white hover:brightness-110 transition-all flex items-center gap-2"
+            className="rounded-full glass-accent px-5 py-2 text-body font-medium text-white transition-all flex items-center gap-2"
           >
             Preview Selected <ChevronRight className="h-3.5 w-3.5" />
           </button>
@@ -146,16 +146,16 @@ export default function ProcessingHub() {
                         key={asset.id}
                         className="card-surface rounded-xl p-4 flex gap-4"
                       >
-                        <div className="h-20 w-20 rounded-lg bg-elevated flex items-center justify-center shrink-0">
+                        <div className="h-20 w-20 rounded-lg card-elevated flex items-center justify-center shrink-0">
                           <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
                         </div>
                         <div className="flex-1 min-w-0">
                           {asset.status === "generating" ? (
                             <div className="space-y-2">
-                              <div className="h-3 rounded-full bg-elevated overflow-hidden">
+                              <div className="h-3 rounded-full glass-button overflow-hidden">
                                 <div className="h-full w-1/2 bg-accent-violet/30 animate-shimmer rounded-full" />
                               </div>
-                              <div className="h-3 w-3/4 rounded-full bg-elevated overflow-hidden">
+                              <div className="h-3 w-3/4 rounded-full glass-button overflow-hidden">
                                 <div className="h-full w-1/2 bg-accent-violet/20 animate-shimmer rounded-full" />
                               </div>
                             </div>
@@ -165,7 +165,7 @@ export default function ProcessingHub() {
                                 {mockCaptions[platform.name]}
                               </p>
                               <div className="mt-2 flex items-center justify-between">
-                                <span className="rounded-md bg-success/10 px-2 py-0.5 text-micro font-mono text-success">
+                                <span className="rounded-md bg-success/10 px-2 py-0.5 text-micro font-mono text-success border border-success/20">
                                   CLEAN
                                 </span>
                                 <span className="font-mono text-micro text-muted-foreground">
@@ -176,10 +176,10 @@ export default function ProcessingHub() {
                           )}
                         </div>
                         <div className="flex flex-col gap-1 shrink-0">
-                          <button className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-elevated transition-colors">
+                          <button className="rounded-md p-1.5 text-muted-foreground hover:text-foreground glass-button transition-colors">
                             <Edit3 className="h-3.5 w-3.5" />
                           </button>
-                          <button className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-elevated transition-colors">
+                          <button className="rounded-md p-1.5 text-muted-foreground hover:text-foreground glass-button transition-colors">
                             <Sparkles className="h-3.5 w-3.5" />
                           </button>
                         </div>

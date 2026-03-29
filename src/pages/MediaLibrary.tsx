@@ -77,8 +77,8 @@ export default function MediaLibrary() {
       {/* Center Panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-4 glass-panel rounded-none border-x-0 border-t-0">
-          <div className="flex flex-1 items-center gap-2 rounded-full bg-elevated px-4 py-2">
+        <div className="flex items-center gap-3 border-b border-white/[0.08] px-6 py-4 glass-panel rounded-none border-x-0 border-t-0">
+          <div className="flex flex-1 items-center gap-2 rounded-full glass-button px-4 py-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
               placeholder="Search assets..."
@@ -92,8 +92,8 @@ export default function MediaLibrary() {
                 onClick={() => setActiveFilter(f)}
                 className={`rounded-full px-3 py-1.5 text-micro font-medium transition-colors ${
                   activeFilter === f
-                    ? "bg-accent-violet text-white"
-                    : "text-muted-foreground hover:text-foreground hover:bg-elevated"
+                    ? "glass-accent text-white"
+                    : "text-muted-foreground hover:text-foreground glass-button"
                 }`}
               >
                 {f}
@@ -101,17 +101,17 @@ export default function MediaLibrary() {
             ))}
           </div>
           <div className="flex items-center gap-1 ml-2">
-            <button className="rounded-md p-1.5 text-muted-foreground hover:bg-elevated hover:text-foreground">
+            <button className="rounded-md p-1.5 text-muted-foreground glass-button hover:text-foreground">
               <Grid3X3 className="h-4 w-4" />
             </button>
-            <button className="rounded-md p-1.5 text-muted-foreground hover:bg-elevated hover:text-foreground">
+            <button className="rounded-md p-1.5 text-muted-foreground glass-button hover:text-foreground">
               <List className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Upload zone */}
-        <div className="mx-6 mt-4 rounded-xl border border-dashed border-white/[0.08] glass-panel px-4 py-3 flex items-center justify-center gap-2 text-muted-foreground text-body cursor-pointer hover:border-accent-violet/40 transition-colors">
+        <div className="mx-6 mt-4 rounded-xl border border-dashed border-white/[0.12] card-surface px-4 py-3 flex items-center justify-center gap-2 text-muted-foreground text-body cursor-pointer hover:border-accent-violet/40 transition-colors">
           <Upload className="h-4 w-4" />
           <span className="font-satoshi">Drop files here or click to upload</span>
         </div>
@@ -134,7 +134,7 @@ export default function MediaLibrary() {
                   }`}
                 >
                   <div
-                    className={`w-full bg-elevated relative ${
+                    className={`w-full card-elevated relative ${
                       asset.ratio === "portrait"
                         ? "h-full min-h-[240px]"
                         : asset.ratio === "landscape"
@@ -157,18 +157,18 @@ export default function MediaLibrary() {
                     {asset.duration && (
                       <>
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="rounded-full bg-black/60 p-2">
+                          <div className="rounded-full glass-button p-2">
                             <Play className="h-5 w-5 text-foreground" />
                           </div>
                         </div>
-                        <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-1.5 py-0.5 font-mono text-micro text-foreground">
+                        <span className="absolute bottom-2 left-2 rounded-md glass-button px-1.5 py-0.5 font-mono text-micro text-foreground">
                           {asset.duration}
                         </span>
                       </>
                     )}
 
                     {/* Type badge */}
-                    <span className="absolute top-2 right-2 rounded-md bg-black/60 px-1.5 py-0.5 text-micro font-mono text-muted-foreground">
+                    <span className="absolute top-2 right-2 rounded-md glass-button px-1.5 py-0.5 text-micro font-mono text-muted-foreground">
                       {asset.type}
                     </span>
 
@@ -179,7 +179,7 @@ export default function MediaLibrary() {
 
                     {/* Selection check */}
                     {isSelected && (
-                      <div className="absolute top-2 left-2 h-5 w-5 rounded-full bg-accent-violet flex items-center justify-center">
+                      <div className="absolute top-2 left-2 h-5 w-5 rounded-full glass-accent flex items-center justify-center">
                         <span className="text-micro font-bold text-white">✓</span>
                       </div>
                     )}
@@ -199,14 +199,14 @@ export default function MediaLibrary() {
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="border-l border-white/[0.06] glass-panel overflow-hidden shrink-0"
+            className="border-l border-white/[0.08] glass-panel overflow-hidden shrink-0"
           >
             <div className="w-[320px] flex flex-col h-full p-5">
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <span className="text-sub font-satoshi text-foreground">Selected</span>
-                  <span className="rounded-full bg-accent-violet px-2 py-0.5 text-micro font-bold text-white">
+                  <span className="rounded-full glass-accent px-2 py-0.5 text-micro font-bold text-white">
                     {selected.length}
                   </span>
                 </div>
@@ -221,7 +221,7 @@ export default function MediaLibrary() {
               {/* Selected thumbnails */}
               <div className="grid grid-cols-3 gap-2 mb-6">
                 {selected.slice(0, 9).map((id) => (
-                  <div key={id} className="aspect-square rounded-lg bg-elevated relative group cursor-pointer">
+                  <div key={id} className="aspect-square rounded-lg card-elevated relative group cursor-pointer">
                     <div className="absolute inset-0 flex items-center justify-center">
                       <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
                     </div>
@@ -239,7 +239,7 @@ export default function MediaLibrary() {
               </div>
 
               {/* Platform selection */}
-              <div className="border-t border-border pt-4">
+              <div className="border-t border-white/[0.08] pt-4">
                 <span className="text-body text-muted-foreground font-satoshi">Publish to:</span>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {platforms.map((p) => {
@@ -249,7 +249,7 @@ export default function MediaLibrary() {
                         key={p.name}
                         onClick={() => togglePlatform(p.name)}
                         className={`rounded-full px-3 py-1.5 text-micro font-medium transition-all ${
-                          active ? p.color : "bg-elevated text-muted-foreground hover:text-foreground"
+                          active ? p.color : "glass-button text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {p.name}
@@ -268,8 +268,8 @@ export default function MediaLibrary() {
                   disabled={activePlatforms.length === 0}
                   className={`w-full rounded-full py-3 text-sub font-medium transition-all flex items-center justify-center gap-2 ${
                     activePlatforms.length > 0
-                      ? "bg-accent-violet text-white hover:brightness-110 animate-glow-breathe"
-                      : "bg-elevated text-muted-foreground cursor-not-allowed"
+                      ? "glass-accent text-white"
+                      : "glass-button text-muted-foreground cursor-not-allowed"
                   }`}
                 >
                   Process <Sparkles className="h-4 w-4" />
