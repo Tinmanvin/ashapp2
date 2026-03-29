@@ -37,14 +37,11 @@ const folders = [
 export default function AppLayout() {
   return (
     <div className="relative flex h-screen w-screen overflow-hidden bg-background">
-      {/* Background Video */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
+      {/* Background Image */}
+      <img
+        src="/bg-image.jpg"
+        alt=""
         className="pointer-events-none fixed inset-0 z-0 h-full w-full object-cover"
-        src="/bg-video.mp4"
       />
       <div className="pointer-events-none fixed inset-0 z-0 bg-background/70" />
 
