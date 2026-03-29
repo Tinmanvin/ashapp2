@@ -45,7 +45,7 @@ export default function ProcessingHub() {
   return (
     <div className="flex h-full">
       {/* Left Column — Asset Queue */}
-      <div className="w-[320px] shrink-0 border-r border-border bg-sidebar/80 backdrop-blur-xl flex flex-col overflow-hidden">
+      <div className="w-[320px] shrink-0 glass-panel border-r-0 flex flex-col overflow-hidden">
         <div className="flex items-center gap-3 px-5 py-5">
           <button
             onClick={() => navigate("/library")}

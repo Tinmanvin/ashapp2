@@ -41,7 +41,7 @@ export default function Scheduler() {
   return (
     <div className="flex h-full">
       {/* Left Staging Panel */}
-      <div className="w-[300px] shrink-0 border-r border-border bg-sidebar/80 backdrop-blur-xl flex flex-col">
+      <div className="w-[300px] shrink-0 glass-panel border-r-0 flex flex-col">
         <div className="px-5 py-5">
           <h2 className="font-clash text-section font-bold text-foreground">Ready to Schedule</h2>
         </div>

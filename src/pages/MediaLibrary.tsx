@@ -77,7 +77,7 @@ export default function MediaLibrary() {
       {/* Center Panel */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Bar */}
-        <div className="flex items-center gap-3 border-b border-border px-6 py-4 bg-background/60 backdrop-blur-sm">
+        <div className="flex items-center gap-3 border-b border-white/[0.06] px-6 py-4 glass-panel rounded-none border-x-0 border-t-0">
           <div className="flex flex-1 items-center gap-2 rounded-full bg-elevated px-4 py-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <input
@@ -111,7 +111,7 @@ export default function MediaLibrary() {
         </div>
 
         {/* Upload zone */}
-        <div className="mx-6 mt-4 rounded-xl border border-dashed border-border/60 bg-elevated/50 backdrop-blur-sm px-4 py-3 flex items-center justify-center gap-2 text-muted-foreground text-body cursor-pointer hover:border-accent-violet/40 transition-colors">
+        <div className="mx-6 mt-4 rounded-xl border border-dashed border-white/[0.08] glass-panel px-4 py-3 flex items-center justify-center gap-2 text-muted-foreground text-body cursor-pointer hover:border-accent-violet/40 transition-colors">
           <Upload className="h-4 w-4" />
           <span className="font-satoshi">Drop files here or click to upload</span>
         </div>
@@ -199,7 +199,7 @@ export default function MediaLibrary() {
             animate={{ width: 320, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="border-l border-border bg-sidebar/80 backdrop-blur-xl overflow-hidden shrink-0"
+            className="border-l border-white/[0.06] glass-panel overflow-hidden shrink-0"
           >
             <div className="w-[320px] flex flex-col h-full p-5">
               {/* Header */}
