@@ -1,0 +1,23 @@
+name = "ash-r2-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "ash-media"
+# Add preview_bucket_name = "ash-media-dev" if you want a dev bucket
+
+[vars]
+ALLOWED_ORIGIN = "https://ashapp.atlasai-agents.com"
+R2_BUCKET_NAME = "ash-media"
+# Fill these in from Cloudflare dashboard → R2 → Manage R2 API Tokens
+# R2_ACCOUNT_ID is your Cloudflare Account ID (top right of dashboard)
+# R2_PUBLIC_URL = "https://pub-XXXX.r2.dev"   ← filled after enabling public access
+
+# Secrets — set via: wrangler secret put <NAME>
+# UPLOAD_SECRET      — random string you choose (keep in .env.local)
+# R2_ACCESS_KEY_ID   — from Cloudflare → R2 → Manage R2 API Tokens
+# R2_SECRET_ACCESS_KEY — same place
+# R2_ACCOUNT_ID      — your Cloudflare Account ID
+# R2_PUBLIC_URL      — your bucket's public URL after enabling public access

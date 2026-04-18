@@ -36,21 +36,13 @@ const folders = [
 
 export default function AppLayout() {
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-background">
-      {/* Background Image */}
-      <img
-        src="/bg-image.jpg"
-        alt=""
-        className="pointer-events-none fixed inset-0 z-0 h-full w-full object-cover"
-      />
-      <div className="pointer-events-none fixed inset-0 z-0 bg-background/30" />
-
+    <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Left Sidebar */}
       <motion.aside
         initial={{ x: -20, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 flex w-[220px] flex-col glass-panel border-r-0 shrink-0"
+        className="flex w-[220px] flex-col border-r border-border bg-sidebar shrink-0"
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-5 py-5">
@@ -135,7 +127,7 @@ export default function AppLayout() {
       </motion.aside>
 
       {/* Main Content */}
-      <main className="relative z-10 flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto">
         <Outlet />
       </main>
     </div>
