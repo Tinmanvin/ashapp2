@@ -56,9 +56,7 @@ export default function MediaLibrary() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
-  const { assets, isProcessing, processFiles, cleanup } = useFileUpload();
-
-  useEffect(() => () => cleanup(), [cleanup]);
+  const { assets, isProcessing, processFiles } = useFileUpload();
 
   // ── Filtered assets (real uploads only — no mocks) ────────────────────────
 
