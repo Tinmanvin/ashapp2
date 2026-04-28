@@ -15,8 +15,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { useFileUpload, type UploadedAsset } from "@/hooks/useFileUpload";
 import DrivePickerModal from "@/components/DrivePickerModal";
+import { useProcessingStore } from "@/store/processingStore";
+import { DISPLAY_NAME_TO_PLATFORM } from "@/lib/captionPrompts";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -35,11 +38,20 @@ const ACCEPTED_ATTR = "image/*,video/*";
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function MediaLibrary() {
+  const navigate = useNavigate();
+  const { setProcessingJob } = useProcessingStore();
   const [selected, setSelected] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState("All");
   const [activePlatforms, setActivePlatforms] = useState<string[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
+
+  const handleProcess = () => {
+    const selectedAssets = assets.filter(a => selected.includes(a.id));
+    const platforms = activePlatforms.map(name => DISPLAY_NAME_TO_PLATFORM[name] ?? name);
+    setProcessingJob(selectedAssets, platforms);
+    navigate("/processing");
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
@@ -443,6 +455,7 @@ export default function MediaLibrary() {
                 {/* Process CTA */}
                 <div className="mt-auto pt-6">
                   <button
+                    onClick={handleProcess}
                     disabled={activePlatforms.length === 0}
                     className={`w-full rounded-full py-3 text-sub font-medium transition-all flex items-center justify-center gap-2 ${
                       activePlatforms.length > 0
