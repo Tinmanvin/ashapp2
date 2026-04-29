@@ -25,6 +25,7 @@ type CaptionStatus = "pending" | "generating" | "ready" | "error";
 interface CaptionEntry {
   body: string;
   status: CaptionStatus;
+  errorMsg?: string;
 }
 
 function ck(assetId: string, platform: string) {
@@ -129,8 +130,9 @@ function ProcessingHubInner() {
         );
         setCaption(asset.id, platform, { body, status: "ready" });
       } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
         console.error("Caption error", asset.name, platform, err);
-        setCaption(asset.id, platform, { status: "error" });
+        setCaption(asset.id, platform, { status: "error", errorMsg });
       }
     },
     [setCaption]
@@ -480,9 +482,16 @@ function ProcessingHubInner() {
                                 </div>
                               </div>
                             ) : status === "error" ? (
-                              <p className="text-body text-destructive font-satoshi pt-1">
-                                Failed to generate — click ↻ to retry.
-                              </p>
+                              <div className="pt-1">
+                                <p className="text-body text-destructive font-satoshi">
+                                  Failed to generate — click ↻ to retry.
+                                </p>
+                                {entry?.errorMsg && (
+                                  <p className="text-micro text-destructive/70 font-mono mt-1 break-all">
+                                    {entry.errorMsg}
+                                  </p>
+                                )}
+                              </div>
                             ) : isEditing ? (
                               <textarea
                                 autoFocus
