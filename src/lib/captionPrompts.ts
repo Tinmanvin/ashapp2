@@ -97,8 +97,8 @@ ${ASH_VOICE_EXAMPLES}`,
 
 export const PLATFORM_META: Record<Platform, { label: string; dotColor: string; textColor: string; charLimit: number }> = {
   x:             { label: 'X / Twitter',   dotColor: 'bg-platform-x',       textColor: 'text-platform-x',       charLimit: 280 },
-  telegram_free: { label: 'Telegram Free', dotColor: 'bg-platform-telegram', textColor: 'text-platform-telegram', charLimit: 1000 },
-  telegram_vip:  { label: 'Telegram VIP',  dotColor: 'bg-blue-400',          textColor: 'text-blue-400',          charLimit: 1000 },
+  telegram_free: { label: 'Telegram Free', dotColor: 'bg-sky-400',   textColor: 'text-sky-400',   charLimit: 1000 },
+  telegram_vip:  { label: 'Telegram VIP',  dotColor: 'bg-blue-600',  textColor: 'text-blue-600',  charLimit: 1000 },
   website:       { label: 'Website',       dotColor: 'bg-platform-website',  textColor: 'text-platform-website',  charLimit: 500 },
   reddit:        { label: 'Reddit',        dotColor: 'bg-platform-reddit',   textColor: 'text-platform-reddit',   charLimit: 300 },
 }
