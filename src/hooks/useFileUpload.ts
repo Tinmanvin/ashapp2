@@ -16,6 +16,7 @@ export interface UploadedAsset {
   status: Asset['status'];
   uploadedAt: string;
   uploadProgress?: number;      // 0-100 during large file uploads
+  episodeTag: string | null;    // content category (Episode, Clip, BTS, etc.)
 }
 
 // ── Thumbnail helpers ─────────────────────────────────────────────────────────
@@ -107,6 +108,7 @@ function dbAssetToUi(asset: Asset): UploadedAsset {
     source: asset.source,
     status: asset.status,
     uploadedAt: asset.uploaded_at,
+    episodeTag: asset.episode_tag ?? null,
   };
 }
 
@@ -194,6 +196,7 @@ export function useFileUpload() {
         status: 'uploaded',
         uploadedAt: new Date().toISOString(),
         uploadProgress: 0,
+        episodeTag: null,
       };
       setAssets((prev) => [optimisticAsset, ...prev]);
 
@@ -288,6 +291,17 @@ export function useFileUpload() {
     setIsProcessing(false);
   }, []);
 
+  // ── Update episode tag ─────────────────────────────────────────────────────
+  const updateEpisodeTag = useCallback(async (id: string, tag: string | null) => {
+    setAssets((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, episodeTag: tag } : a))
+    );
+    await supabase
+      .from('assets')
+      .update({ episode_tag: tag })
+      .eq('id', id);
+  }, []);
+
   // ── Remove asset ───────────────────────────────────────────────────────────
   const removeAsset = useCallback(async (id: string) => {
     // Optimistic remove from UI
@@ -314,5 +328,5 @@ export function useFileUpload() {
     }
   }, []);
 
-  return { assets, isLoading, isProcessing, processFiles, removeAsset };
+  return { assets, isLoading, isProcessing, processFiles, removeAsset, updateEpisodeTag };
 }

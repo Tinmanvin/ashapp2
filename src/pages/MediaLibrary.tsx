@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
@@ -13,9 +14,11 @@ import {
   Sparkles,
   HardDrive,
   Loader2,
+  ChevronDown,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useFileUpload, type UploadedAsset } from "@/hooks/useFileUpload";
 import DrivePickerModal from "@/components/DrivePickerModal";
 import { useProcessingStore } from "@/store/processingStore";
@@ -23,11 +26,21 @@ import { DISPLAY_NAME_TO_PLATFORM } from "@/lib/captionPrompts";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const filters = ["All", "Images", "Videos", "Clips", "Unscheduled"];
+const filters = ["All", "Images", "Videos", "Unscheduled"];
+
+const CATEGORIES = ["Episode", "Clip", "Photo", "Trailer", "Teaser", "BTS"];
+
+const FOLDER_TO_TAG: Record<string, string> = {
+  Episodes: "Episode",
+  Clips: "Clip",
+  Photos: "Photo",
+  Trailers: "Trailer",
+  Teasers: "Teaser",
+  BTS: "BTS",
+};
 
 const platforms = [
   { name: "X", color: "bg-platform-x text-black" },
-  { name: "Reddit", color: "bg-platform-reddit text-white" },
   { name: "Telegram Free", color: "bg-platform-telegram text-white" },
   { name: "Telegram VIP", color: "bg-platform-telegram text-white" },
   { name: "Website", color: "bg-platform-website text-white" },
@@ -35,43 +48,254 @@ const platforms = [
 
 const ACCEPTED_ATTR = "image/*,video/*";
 
+// ── Shared dropdown rendered into document.body via portal ───────────────────
+
+function TagDropdown({
+  dropRef,
+  pos,
+  currentTag,
+  onSelect,
+  showClear,
+  clearLabel,
+}: {
+  dropRef: React.RefObject<HTMLDivElement | null>;
+  pos: { top: number; right: number };
+  currentTag: string | null;
+  onSelect: (e: React.MouseEvent, value: string | null) => void;
+  showClear: boolean;
+  clearLabel: string;
+}) {
+  return createPortal(
+    <div
+      ref={dropRef}
+      style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
+      className="w-28 rounded-lg border border-white/10 bg-[#1a1a2e]/95 backdrop-blur-md shadow-xl overflow-hidden"
+    >
+      {CATEGORIES.map((cat) => (
+        <button
+          key={cat}
+          onClick={(e) => onSelect(e, cat)}
+          className={`w-full text-left px-3 py-1.5 text-micro font-satoshi transition-colors hover:bg-white/[0.06] ${
+            currentTag === cat ? "text-accent-violet" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {cat}
+        </button>
+      ))}
+      {showClear && (
+        <>
+          <div className="mx-2 my-1 border-t border-white/[0.06]" />
+          <button
+            onClick={(e) => onSelect(e, null)}
+            className="w-full text-left px-3 py-1.5 text-micro font-satoshi text-danger/70 hover:text-danger transition-colors hover:bg-white/[0.06]"
+          >
+            {clearLabel}
+          </button>
+        </>
+      )}
+    </div>,
+    document.body
+  );
+}
+
+// ── Category Pill ─────────────────────────────────────────────────────────────
+
+function CategoryPill({
+  assetId,
+  tag,
+  onUpdate,
+}: {
+  assetId: string;
+  tag: string | null;
+  onUpdate: (id: string, tag: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        btnRef.current?.contains(e.target as Node) ||
+        dropRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    setOpen((v) => !v);
+  };
+
+  const select = (e: React.MouseEvent, value: string | null) => {
+    e.stopPropagation();
+    onUpdate(assetId, value);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleToggle}
+        className={`flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border ${
+          tag
+            ? "bg-accent-violet/20 border-accent-violet/40 text-accent-violet"
+            : "bg-black/40 border-white/10 text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <Tag className="h-2.5 w-2.5" />
+        <span>{tag ?? "Tag"}</span>
+        <ChevronDown className={`h-2.5 w-2.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && dropPos && (
+        <TagDropdown
+          dropRef={dropRef}
+          pos={dropPos}
+          currentTag={tag}
+          onSelect={select}
+          showClear={!!tag}
+          clearLabel="Clear"
+        />
+      )}
+    </>
+  );
+}
+
+// ── Bulk Tag Pill ─────────────────────────────────────────────────────────────
+
+function BulkTagPill({
+  selectedIds,
+  onUpdate,
+}: {
+  selectedIds: string[];
+  onUpdate: (id: string, tag: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        btnRef.current?.contains(e.target as Node) ||
+        dropRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    setOpen((v) => !v);
+  };
+
+  const select = (e: React.MouseEvent, value: string | null) => {
+    e.stopPropagation();
+    selectedIds.forEach((id) => onUpdate(id, value));
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleToggle}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-black/40 border-white/10 text-muted-foreground hover:text-foreground"
+      >
+        <Tag className="h-2.5 w-2.5" />
+        <span>Tag all</span>
+        <ChevronDown className={`h-2.5 w-2.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && dropPos && (
+        <TagDropdown
+          dropRef={dropRef}
+          pos={dropPos}
+          currentTag={null}
+          onSelect={select}
+          showClear
+          clearLabel="Clear all"
+        />
+      )}
+    </>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function MediaLibrary() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { setProcessingJob } = useProcessingStore();
   const [selected, setSelected] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState("All");
   const [activePlatforms, setActivePlatforms] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
 
+  const navCategory = searchParams.get("nav");
+  const navTag = navCategory ? (FOLDER_TO_TAG[navCategory] ?? null) : null;
+
   const handleProcess = () => {
-    const selectedAssets = assets.filter(a => selected.includes(a.id));
-    const platforms = activePlatforms.map(name => DISPLAY_NAME_TO_PLATFORM[name] ?? name);
-    setProcessingJob(selectedAssets, platforms);
+    const selectedAssets = assets.filter((a) => selected.includes(a.id));
+    const platformValues = activePlatforms.map(
+      (name) => DISPLAY_NAME_TO_PLATFORM[name] ?? name
+    );
+    setProcessingJob(selectedAssets, platformValues);
     navigate("/processing");
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
-  const { assets, isProcessing, processFiles } = useFileUpload();
+  const { assets, isProcessing, processFiles, updateEpisodeTag } = useFileUpload();
 
-  // ── Filtered assets (real uploads only — no mocks) ────────────────────────
+  // ── Filtered assets ────────────────────────────────────────────────────────
 
   const filteredAssets = assets.filter((a) => {
-    if (activeFilter === "All") return true;
-    if (activeFilter === "Images") return a.type === "IMAGE";
-    if (activeFilter === "Videos") return a.type === "VIDEO";
-    if (activeFilter === "Clips") return a.type === "CLIP";
-    return true;
+    const passesType =
+      activeFilter === "All" ||
+      (activeFilter === "Images" && a.type === "IMAGE") ||
+      (activeFilter === "Videos" && a.type === "VIDEO") ||
+      (activeFilter === "Unscheduled" &&
+        a.status !== "scheduled" &&
+        a.status !== "published");
+
+    const passesNav = !navTag || a.episodeTag === navTag;
+
+    const passesSearch =
+      !searchQuery ||
+      a.name.toLowerCase().includes(searchQuery.toLowerCase());
+
+    return passesType && passesNav && passesSearch;
   });
 
   // ── Selection ──────────────────────────────────────────────────────────────
 
   const toggleSelect = (id: string) =>
-    setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    setSelected((s) =>
+      s.includes(id) ? s.filter((x) => x !== id) : [...s, id]
+    );
 
   const togglePlatform = (name: string) =>
     setActivePlatforms((p) =>
@@ -141,7 +365,6 @@ export default function MediaLibrary() {
 
   return (
     <>
-      {/* Drive picker modal */}
       {showDrivePicker && (
         <DrivePickerModal
           onFilesSelected={handleDriveFiles}
@@ -149,7 +372,6 @@ export default function MediaLibrary() {
         />
       )}
 
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -169,6 +391,8 @@ export default function MediaLibrary() {
               <Search className="h-4 w-4 text-muted-foreground" />
               <input
                 placeholder="Search assets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 bg-transparent text-body text-foreground placeholder:text-muted-foreground outline-none font-satoshi"
               />
             </div>
@@ -210,10 +434,8 @@ export default function MediaLibrary() {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
           >
-            {/* Spacer — balances Drive button */}
             <div className="w-24 shrink-0" />
 
-            {/* Center prompt */}
             <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-body select-none">
               {isProcessing ? (
                 <>
@@ -233,7 +455,6 @@ export default function MediaLibrary() {
               )}
             </div>
 
-            {/* Google Drive button */}
             <button
               onClick={(e) => { e.stopPropagation(); setShowDrivePicker(true); }}
               className="w-24 shrink-0 flex items-center justify-end gap-1.5 text-micro text-muted-foreground hover:text-foreground transition-colors"
@@ -243,16 +464,34 @@ export default function MediaLibrary() {
             </button>
           </div>
 
-          {/* Asset Grid / Empty State */}
+          {/* Nav category breadcrumb */}
+          {navCategory && (
+            <div className="mx-6 mt-3 flex items-center gap-2">
+              <span className="text-micro text-muted-foreground font-satoshi">
+                Filtering by:
+              </span>
+              <span className="rounded-full glass-accent px-2.5 py-0.5 text-micro font-medium text-white">
+                {navCategory}
+              </span>
+              <button
+                onClick={() => navigate("/library")}
+                className="text-micro text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
+          {/* Asset Grid */}
           <div className="flex-1 overflow-auto p-6">
             {filteredAssets.length === 0 ? (
-              /* Empty state */
               <div className="flex flex-col items-center justify-center h-full gap-4 select-none">
                 <div className="relative">
                   <div
                     className="w-24 h-24 rounded-2xl flex items-center justify-center"
                     style={{
-                      background: "radial-gradient(ellipse at 50% 50%, rgba(124,92,246,0.15) 0%, transparent 70%)",
+                      background:
+                        "radial-gradient(ellipse at 50% 50%, rgba(124,92,246,0.15) 0%, transparent 70%)",
                     }}
                   >
                     <Upload className="h-8 w-8 text-muted-foreground/30" />
@@ -260,103 +499,110 @@ export default function MediaLibrary() {
                 </div>
                 <div className="text-center">
                   <p className="font-satoshi font-medium text-muted-foreground/60 text-body">
-                    Drop your content here
+                    {navCategory ? `No ${navCategory} tagged yet` : "Drop your content here"}
                   </p>
                   <p className="font-satoshi text-muted-foreground/35 text-micro mt-1">
-                    Images and videos will appear in a bento grid
+                    {navCategory
+                      ? "Tag assets using the pill on each card"
+                      : "Images and videos will appear in a bento grid"}
                   </p>
                 </div>
               </div>
             ) : (
-              /* Bento asset grid */
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-auto">
                 {filteredAssets.map((asset) => {
                   const isSelected = selected.includes(asset.id);
                   return (
-                    <motion.div
+                    /* Outer wrapper — no overflow-hidden so dropdown escapes */
+                    <div
                       key={asset.id}
-                      initial={{ opacity: 0, scale: 0.96 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => toggleSelect(asset.id)}
-                      className={`group relative cursor-pointer rounded-xl overflow-hidden transition-shadow ${
-                        asset.ratio === "portrait" ? "row-span-2" : ""
-                      } ${isSelected ? "glow-ring" : ""}`}
+                      className={`relative ${asset.ratio === "portrait" ? "row-span-2" : ""} group/card`}
                     >
-                      <div
-                        className={`w-full card-elevated relative ${
-                          asset.ratio === "portrait"
-                            ? "h-full min-h-[240px]"
-                            : asset.ratio === "landscape"
-                            ? "aspect-video"
-                            : "aspect-square"
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => toggleSelect(asset.id)}
+                        className={`group relative cursor-pointer rounded-xl overflow-hidden h-full transition-shadow ${
+                          isSelected ? "glow-ring" : ""
                         }`}
                       >
-                        {/* Real thumbnail */}
-                        {asset.previewUrl && (
-                          <img
-                            src={asset.previewUrl}
-                            alt={asset.name}
-                            className="absolute inset-0 w-full h-full object-cover"
-                            draggable={false}
-                          />
-                        )}
+                        <div
+                          className={`w-full card-elevated relative ${
+                            asset.ratio === "portrait"
+                              ? "h-full min-h-[240px]"
+                              : asset.ratio === "landscape"
+                              ? "aspect-video"
+                              : "aspect-square"
+                          }`}
+                        >
+                          {asset.previewUrl && (
+                            <img
+                              src={asset.previewUrl}
+                              alt={asset.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              draggable={false}
+                            />
+                          )}
 
-                        {/* Fallback placeholder (no thumbnail) */}
-                        {!asset.previewUrl && (
-                          <>
-                            <div className="absolute inset-0 atmospheric-glow opacity-30" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              {asset.type === "VIDEO" ? (
-                                <Film className="h-8 w-8 text-muted-foreground/30" />
-                              ) : asset.type === "CLIP" ? (
-                                <Scissors className="h-8 w-8 text-muted-foreground/30" />
-                              ) : (
-                                <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-                              )}
-                            </div>
-                          </>
-                        )}
-
-                        {/* Dark overlay */}
-                        {asset.previewUrl && (
-                          <div className="absolute inset-0 bg-black/15 group-hover:bg-black/25 transition-colors" />
-                        )}
-
-                        {/* Video: play + duration */}
-                        {asset.duration && (
-                          <>
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <div className="rounded-full glass-button p-2">
-                                <Play className="h-5 w-5 text-foreground" />
+                          {!asset.previewUrl && (
+                            <>
+                              <div className="absolute inset-0 atmospheric-glow opacity-30" />
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                {asset.type === "VIDEO" ? (
+                                  <Film className="h-8 w-8 text-muted-foreground/30" />
+                                ) : asset.type === "CLIP" ? (
+                                  <Scissors className="h-8 w-8 text-muted-foreground/30" />
+                                ) : (
+                                  <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                                )}
                               </div>
-                            </div>
-                            <span className="absolute bottom-2 left-2 rounded-md glass-button px-1.5 py-0.5 font-mono text-micro text-foreground">
-                              {asset.duration}
+                            </>
+                          )}
+
+                          {asset.previewUrl && (
+                            <div className="absolute inset-0 bg-black/15 group-hover:bg-black/25 transition-colors" />
+                          )}
+
+                          {asset.duration && (
+                            <>
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <div className="rounded-full glass-button p-2">
+                                  <Play className="h-5 w-5 text-foreground" />
+                                </div>
+                              </div>
+                              <span className="absolute bottom-2 left-2 rounded-md glass-button px-1.5 py-0.5 font-mono text-micro text-foreground">
+                                {asset.duration}
+                              </span>
+                            </>
+                          )}
+
+
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-body text-foreground font-satoshi truncate block">
+                              {asset.name}
                             </span>
-                          </>
-                        )}
-
-                        {/* Type badge */}
-                        <span className="absolute top-2 right-2 rounded-md glass-button px-1.5 py-0.5 text-micro font-mono text-muted-foreground">
-                          {asset.type}
-                        </span>
-
-                        {/* Filename on hover */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-body text-foreground font-satoshi truncate block">{asset.name}</span>
-                        </div>
-
-                        {/* Selection check — inside bounds */}
-                        {isSelected && (
-                          <div className="absolute top-2 left-2 h-5 w-5 rounded-full glass-accent flex items-center justify-center">
-                            <span className="text-micro font-bold text-white">✓</span>
                           </div>
-                        )}
+
+                          {isSelected && (
+                            <div className="absolute top-2 left-2 h-5 w-5 rounded-full glass-accent flex items-center justify-center">
+                              <span className="text-micro font-bold text-white">✓</span>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+
+                      {/* Category pill — top-right, outside overflow-hidden so dropdown is unclipped */}
+                      <div className="absolute top-2 right-2 z-20">
+                        <CategoryPill
+                          assetId={asset.id}
+                          tag={asset.episodeTag}
+                          onUpdate={updateEpisodeTag}
+                        />
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
@@ -375,7 +621,6 @@ export default function MediaLibrary() {
               className="border-l border-white/[0.08] glass-panel overflow-hidden shrink-0"
             >
               <div className="w-[320px] flex flex-col h-full p-5">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className="text-sub font-satoshi text-foreground">Selected</span>
@@ -391,7 +636,6 @@ export default function MediaLibrary() {
                   </button>
                 </div>
 
-                {/* Selected thumbnails — X button inside bounds */}
                 <div className="grid grid-cols-3 gap-2 mb-6">
                   {selected.slice(0, 9).map((id) => {
                     const asset = assets.find((a) => a.id === id) as UploadedAsset | undefined;
@@ -411,7 +655,6 @@ export default function MediaLibrary() {
                             <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
                           </div>
                         )}
-                        {/* X button — inside the container (top-1 right-1, not -top-1 -right-1) */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -426,7 +669,6 @@ export default function MediaLibrary() {
                   })}
                 </div>
 
-                {/* Platform selection */}
                 <div className="border-t border-white/[0.08] pt-4">
                   <span className="text-body text-muted-foreground font-satoshi">Publish to:</span>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -437,7 +679,9 @@ export default function MediaLibrary() {
                           key={p.name}
                           onClick={() => togglePlatform(p.name)}
                           className={`rounded-full px-3 py-1.5 text-micro font-medium transition-all ${
-                            active ? p.color : "glass-button text-muted-foreground hover:text-foreground"
+                            active
+                              ? p.color
+                              : "glass-button text-muted-foreground hover:text-foreground"
                           }`}
                         >
                           {p.name}
@@ -448,9 +692,11 @@ export default function MediaLibrary() {
                   <p className="mt-3 text-micro text-muted-foreground/60 font-satoshi">
                     Censoring rules applied automatically per platform
                   </p>
+                  <div className="mt-3">
+                    <BulkTagPill selectedIds={selected} onUpdate={updateEpisodeTag} />
+                  </div>
                 </div>
 
-                {/* Process CTA */}
                 <div className="mt-auto pt-6">
                   <button
                     onClick={handleProcess}

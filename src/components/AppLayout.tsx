@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, Outlet, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -15,6 +16,7 @@ import {
   Star,
   Camera,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -24,17 +26,84 @@ const navItems = [
   { to: "/scheduler", icon: Calendar, label: "Scheduler" },
 ];
 
+const TAG_TO_LABEL: Record<string, string> = {
+  Episode: "Episodes",
+  Clip: "Clips",
+  Photo: "Photos",
+  Trailer: "Trailers",
+  Teaser: "Teasers",
+  BTS: "BTS",
+};
+
 const folders = [
-  { icon: FolderOpen, label: "All Assets", count: 247 },
-  { icon: Film, label: "Episodes", count: 48 },
-  { icon: Scissors, label: "Clips", count: 124 },
-  { icon: Image, label: "Photos", count: 53 },
-  { icon: Clapperboard, label: "Trailers", count: 8 },
-  { icon: Star, label: "Teasers", count: 6 },
-  { icon: Camera, label: "BTS", count: 8 },
+  { icon: FolderOpen, label: "All Assets", nav: null },
+  { icon: Film, label: "Episodes", nav: "Episodes" },
+  { icon: Scissors, label: "Clips", nav: "Clips" },
+  { icon: Image, label: "Photos", nav: "Photos" },
+  { icon: Clapperboard, label: "Trailers", nav: "Trailers" },
+  { icon: Star, label: "Teasers", nav: "Teasers" },
+  { icon: Camera, label: "BTS", nav: "BTS" },
 ];
 
 export default function AppLayout() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const activeNav = searchParams.get("nav");
+
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [totalCount, setTotalCount] = useState(0);
+
+  useEffect(() => {
+    async function loadCounts() {
+      const { data, error } = await supabase
+        .from("assets")
+        .select("episode_tag");
+
+      if (error || !data) return;
+
+      const totals: Record<string, number> = {};
+      for (const row of data as { episode_tag: string | null }[]) {
+        const tag = row.episode_tag;
+        if (tag) {
+          const label = TAG_TO_LABEL[tag] ?? tag;
+          totals[label] = (totals[label] ?? 0) + 1;
+        }
+      }
+      setCounts(totals);
+      setTotalCount(data.length);
+    }
+
+    loadCounts();
+
+    const channel = supabase
+      .channel("asset-tag-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "assets" },
+        () => loadCounts()
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const isLibrary = location.pathname === "/library";
+
+  const handleFolderClick = (nav: string | null) => {
+    if (nav) {
+      navigate(`/library?nav=${encodeURIComponent(nav)}`);
+    } else {
+      navigate("/library");
+    }
+  };
+
+  const isFolderActive = (nav: string | null) => {
+    if (!isLibrary) return false;
+    if (nav === null) return !activeNav;
+    return activeNav === nav;
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Left Sidebar */}
@@ -72,9 +141,7 @@ export default function AppLayout() {
               {({ isActive }) => (
                 <>
                   <item.icon
-                    className={`h-[18px] w-[18px] ${
-                      isActive ? "text-accent-violet" : ""
-                    }`}
+                    className={`h-[18px] w-[18px] ${isActive ? "text-accent-violet" : ""}`}
                     strokeWidth={isActive ? 2.2 : 1.5}
                   />
                   <span className="font-satoshi">{item.label}</span>
@@ -90,18 +157,30 @@ export default function AppLayout() {
             Library
           </span>
           <div className="mt-3 flex flex-col gap-0.5">
-            {folders.map((f, i) => (
-              <button
-                key={i}
-                className="flex items-center gap-2.5 rounded-md px-3 py-1.5 text-body text-muted-foreground transition-colors hover:bg-elevated/50 hover:text-foreground"
-              >
-                <f.icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-                <span className="flex-1 text-left font-satoshi">{f.label}</span>
-                <span className="rounded-md bg-elevated px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
-                  {f.count}
-                </span>
-              </button>
-            ))}
+            {folders.map((f) => {
+              const active = isFolderActive(f.nav);
+              const count = f.nav === null ? totalCount : (counts[f.label] ?? 0);
+              return (
+                <button
+                  key={f.label}
+                  onClick={() => handleFolderClick(f.nav)}
+                  className={`flex items-center gap-2.5 rounded-md px-3 py-1.5 text-body transition-colors ${
+                    active
+                      ? "bg-elevated text-foreground"
+                      : "text-muted-foreground hover:bg-elevated/50 hover:text-foreground"
+                  }`}
+                >
+                  <f.icon
+                    className={`h-3.5 w-3.5 ${active ? "text-accent-violet" : ""}`}
+                    strokeWidth={active ? 2.2 : 1.5}
+                  />
+                  <span className="flex-1 text-left font-satoshi">{f.label}</span>
+                  <span className="rounded-md bg-elevated px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
