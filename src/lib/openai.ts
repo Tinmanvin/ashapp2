@@ -1,17 +1,5 @@
-import OpenAI from 'openai'
+import { supabase } from './supabase'
 import { PLATFORM_RULES, Platform } from './captionPrompts'
-
-// Lazy-init so a missing key doesn't crash the bundle at module load time
-let _client: OpenAI | null = null
-function getClient(): OpenAI {
-  if (!_client) {
-    _client = new OpenAI({
-      apiKey: import.meta.env.VITE_OPENAI_API_KEY as string,
-      dangerouslyAllowBrowser: true, // internal tool for Ash, not a public app
-    })
-  }
-  return _client
-}
 
 export async function generateCaption(
   assetName: string,
@@ -19,14 +7,15 @@ export async function generateCaption(
   platform: Platform
 ): Promise<string> {
   const { systemPrompt } = PLATFORM_RULES[platform]
-  const response = await getClient().chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: `Write a caption for: "${assetName}" (type: ${assetType})` },
-    ],
-    max_tokens: 300,
-    temperature: 0.85,
+  const userPrompt = `Write a caption for: "${assetName}" (type: ${assetType})`
+
+  const { data, error } = await supabase.functions.invoke('generate-caption', {
+    body: { systemPrompt, userPrompt },
   })
-  return response.choices[0].message.content?.trim() ?? ''
+
+  if (error) throw new Error(error.message)
+  if (data?.error) throw new Error(data.error)
+  if (!data?.text) throw new Error('Empty response from caption generator')
+
+  return data.text
 }

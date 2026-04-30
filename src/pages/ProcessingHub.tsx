@@ -224,8 +224,11 @@ function ProcessingHubInner() {
         { onConflict: "asset_id,platform" }
       );
       setCaption(asset.id, platform, { body, status: "ready" });
-    } catch {
-      setCaption(asset.id, platform, { status: "error" });
+    } catch (err) {
+      setCaption(asset.id, platform, {
+        status: "error",
+        errorMsg: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -521,13 +524,7 @@ function ProcessingHubInner() {
                             )}
 
                             {status === "ready" && !isEditing && (
-                              <div className="mt-2 flex items-center justify-between">
-                                <span className="rounded-md bg-success/10 px-2 py-0.5 text-micro font-mono text-success border border-success/20">
-                                  {platform === "telegram_free" ||
-                                  platform === "website"
-                                    ? "CLEAN"
-                                    : "EXPLICIT OK"}
-                                </span>
+                              <div className="mt-2 flex justify-end">
                                 <span
                                   className={`font-mono text-micro ${
                                     (entry?.body?.length ?? 0) > charLimit
