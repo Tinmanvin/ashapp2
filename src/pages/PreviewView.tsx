@@ -13,7 +13,6 @@ import {
   BarChart2,
   Share2,
   ChevronRight,
-  Play,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProcessingStore } from "@/store/processingStore";
@@ -46,36 +45,21 @@ function ratioClass(ratio: UploadedAsset["ratio"]): string {
   return "aspect-video";
 }
 
-// ── Video placeholder (always works, looks professional) ───────────────────────
-
-function VideoPlaceholder({ asset }: { asset: UploadedAsset }) {
-  return (
-    <div
-      className="w-full h-full flex items-center justify-center relative"
-      style={{ background: "linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%)" }}
-    >
-      <div className="flex items-center justify-center w-16 h-16 rounded-full border-2 border-white/25 bg-white/10 backdrop-blur-sm">
-        <Play className="h-7 w-7 text-white/60 ml-1" fill="rgba(255,255,255,0.6)" />
-      </div>
-      {asset.duration && (
-        <div className="absolute bottom-2 right-2 bg-black/60 rounded px-2 py-0.5 text-[11px] text-white/70 font-mono">
-          {asset.duration}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Shared media block ────────────────────────────────────────────────────────
+// previewUrl = R2 thumbnail image URL for both IMAGE and VIDEO types
 
 function MediaBlock({ asset }: { asset: UploadedAsset }) {
+  const [failed, setFailed] = useState(false);
   const rc = ratioClass(asset.ratio);
   return (
     <div className={`w-full overflow-hidden ${rc}`}>
-      {asset.type === "VIDEO" ? (
-        <VideoPlaceholder asset={asset} />
-      ) : asset.previewUrl ? (
-        <img src={asset.previewUrl} alt={asset.name} className="w-full h-full object-cover" />
+      {asset.previewUrl && !failed ? (
+        <img
+          src={asset.previewUrl}
+          alt={asset.name}
+          className="w-full h-full object-cover"
+          onError={() => setFailed(true)}
+        />
       ) : (
         <div className="w-full h-full bg-[#1d2733]" />
       )}
@@ -380,8 +364,8 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
             {TELEGRAM_REACTIONS.map((r) => (
               <div
                 key={r}
-                className="rounded-full px-2 py-0.5 text-[12px] cursor-pointer select-none"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.75)" }}
+                className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
+                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
               >
                 {r}
               </div>
