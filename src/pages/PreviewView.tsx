@@ -68,19 +68,49 @@ function MediaBlock({
   platform?: "x" | "telegram";
 }) {
   const [failed, setFailed] = useState(false);
+  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
+
+  // Reset dimensions when asset changes
+  useEffect(() => {
+    setImgSize(null);
+    setFailed(false);
+  }, [asset.previewUrl]);
 
   if (platform === "telegram") {
-    return asset.previewUrl && !failed ? (
-      <div style={{ width: "100%", lineHeight: 0 }}>
-        <img
-          src={asset.previewUrl}
-          alt={asset.name}
-          style={{ display: "block", width: "100%", height: "auto", maxHeight: "55vh" }}
-          onError={() => setFailed(true)}
-        />
-      </div>
-    ) : (
-      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />
+    if (!asset.previewUrl || failed) {
+      return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />;
+    }
+
+    // Background-image divs are never promoted to separate GPU compositing layers,
+    // so border-radius always clips them — unlike <img> elements which Chrome promotes
+    // to independent GPU layers, bypassing parent overflow:hidden and clip-path entirely.
+    return (
+      <>
+        {/* Hidden img loads the URL to capture natural dimensions */}
+        {!imgSize && (
+          <img
+            src={asset.previewUrl}
+            style={{ display: "none" }}
+            onLoad={(e) => {
+              const el = e.currentTarget;
+              setImgSize({ w: el.naturalWidth, h: el.naturalHeight });
+            }}
+            onError={() => setFailed(true)}
+          />
+        )}
+        <div style={{ overflow: "hidden", maxHeight: "55vh", borderRadius: "16px 16px 0 0" }}>
+          <div
+            style={{
+              width: "100%",
+              aspectRatio: imgSize ? `${imgSize.w} / ${imgSize.h}` : "4 / 3",
+              backgroundImage: `url("${asset.previewUrl}")`,
+              backgroundSize: "cover",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center top",
+            }}
+          />
+        </div>
+      </>
     );
   }
 
@@ -391,8 +421,6 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
         background: "linear-gradient(to right, #342234, #222434)",
         width: "320px",
         maxWidth: "calc(100% - 2rem)",
-        willChange: "transform",
-        contain: "paint" as React.CSSProperties["contain"],
       }}
     >
         {/* Media — borderless, flush to top of bubble */}
