@@ -70,20 +70,21 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
 
   if (platform === "telegram") {
-    // Wrapper div owns the clip. A plain div's overflow:hidden is never bypassed by GPU
-    // layer promotion — unlike borderRadius on <img> or parent overflow-hidden, which both
-    // fail when the browser promotes PNG images to their own compositing layer.
+    // transform:translateZ(0) forces this div onto its own GPU compositing layer.
+    // When parent and child share a compositing context, overflow:hidden reliably clips
+    // the image — without it, browsers can promote large images to separate layers,
+    // bypassing the parent's overflow:hidden and making border-radius invisible.
     return asset.previewUrl && !failed ? (
-      <div style={{ overflow: "hidden", borderRadius: "1rem 1rem 0 0", width: "100%", lineHeight: 0 }}>
+      <div style={{ overflow: "hidden", borderRadius: "16px 16px 0 0", width: "100%", lineHeight: 0, transform: "translateZ(0)" }}>
         <img
           src={asset.previewUrl}
           alt={asset.name}
-          style={{ display: "block", width: "100%", height: "auto", maxHeight: "55vh", objectFit: "cover", clipPath: "inset(0 round 1rem 1rem 0 0)" }}
+          style={{ display: "block", width: "100%", height: "auto", maxHeight: "55vh" }}
           onError={() => setFailed(true)}
         />
       </div>
     ) : (
-      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderRadius: "1rem 1rem 0 0" }} />
+      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderRadius: "16px 16px 0 0" }} />
     );
   }
 
