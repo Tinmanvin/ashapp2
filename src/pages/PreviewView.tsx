@@ -37,33 +37,29 @@ const TAB_TO_PLATFORM_ID: Record<string, string> = {
 
 const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function ratioClass(ratio: UploadedAsset["ratio"]): string {
-  if (ratio === "portrait") return "aspect-[9/16] max-h-[480px]";
-  if (ratio === "square")   return "aspect-square";
-  return "aspect-video";
-}
-
 // ── Shared media block ────────────────────────────────────────────────────────
-// previewUrl = R2 thumbnail image URL for both IMAGE and VIDEO types
+// No wrapper div — parent containers own overflow-hidden + border-radius,
+// so they correctly clip the image top corners on all sizes.
 
 function MediaBlock({ asset }: { asset: UploadedAsset }) {
   const [failed, setFailed] = useState(false);
-  const rc = ratioClass(asset.ratio);
+
+  if (!asset.previewUrl || failed) {
+    return <div style={{ height: "200px", backgroundColor: "#1d2733" }} />;
+  }
+
   return (
-    <div className={`w-full overflow-hidden ${rc}`}>
-      {asset.previewUrl && !failed ? (
-        <img
-          src={asset.previewUrl}
-          alt={asset.name}
-          className="w-full h-full object-cover"
-          onError={() => setFailed(true)}
-        />
-      ) : (
-        <div className="w-full h-full bg-[#1d2733]" />
-      )}
-    </div>
+    <img
+      src={asset.previewUrl}
+      alt={asset.name}
+      style={{
+        width: "100%",
+        maxHeight: "40vh",
+        objectFit: "cover",
+        display: "block",
+      }}
+      onError={() => setFailed(true)}
+    />
   );
 }
 
