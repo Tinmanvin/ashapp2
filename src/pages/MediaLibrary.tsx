@@ -509,7 +509,7 @@ export default function MediaLibrary() {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-auto">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3" style={{ gridAutoRows: "180px" }}>
                 {filteredAssets.map((asset) => {
                   const isSelected = selected.includes(asset.id);
                   return (
@@ -529,15 +529,7 @@ export default function MediaLibrary() {
                           isSelected ? "glow-ring" : ""
                         }`}
                       >
-                        <div
-                          className={`w-full card-elevated relative ${
-                            asset.ratio === "portrait"
-                              ? "h-full min-h-[240px]"
-                              : asset.ratio === "landscape"
-                              ? "aspect-video"
-                              : "aspect-square"
-                          }`}
-                        >
+                        <div className="w-full card-elevated relative h-full">
                           {asset.previewUrl && (
                             <img
                               src={asset.previewUrl}

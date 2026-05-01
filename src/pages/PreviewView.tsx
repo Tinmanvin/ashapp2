@@ -37,29 +37,49 @@ const TAB_TO_PLATFORM_ID: Record<string, string> = {
 
 const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+// Wrapper div sets the aspect-ratio box; NO overflow-hidden here so the parent
+// container's rounded-2xl / rounded-[16px] is the only clipping authority.
+
+function ratioContainerCls(
+  ratio: UploadedAsset["ratio"],
+  platform: "x" | "telegram"
+): string {
+  if (ratio === "landscape") return "w-full aspect-video";
+  if (ratio === "square")
+    return platform === "x"
+      ? "w-full aspect-square"
+      : "w-full aspect-square max-h-[380px]";
+  // portrait
+  return platform === "x"
+    ? "w-full aspect-[9/16] max-h-[340px]"
+    : "w-full aspect-[9/16] max-h-[480px]";
+}
+
 // ── Shared media block ────────────────────────────────────────────────────────
-// No wrapper div — parent containers own overflow-hidden + border-radius,
-// so they correctly clip the image top corners on all sizes.
 
-function MediaBlock({ asset }: { asset: UploadedAsset }) {
+function MediaBlock({
+  asset,
+  platform = "telegram",
+}: {
+  asset: UploadedAsset;
+  platform?: "x" | "telegram";
+}) {
   const [failed, setFailed] = useState(false);
-
-  if (!asset.previewUrl || failed) {
-    return <div style={{ height: "200px", backgroundColor: "#1d2733" }} />;
-  }
-
+  const cls = ratioContainerCls(asset.ratio, platform);
   return (
-    <img
-      src={asset.previewUrl}
-      alt={asset.name}
-      style={{
-        width: "100%",
-        maxHeight: "40vh",
-        objectFit: "cover",
-        display: "block",
-      }}
-      onError={() => setFailed(true)}
-    />
+    <div className={cls}>
+      {asset.previewUrl && !failed ? (
+        <img
+          src={asset.previewUrl}
+          alt={asset.name}
+          className="w-full h-full object-cover block"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <div className="w-full h-full bg-[#1d2733]" />
+      )}
+    </div>
   );
 }
 
@@ -298,8 +318,17 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
             <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
           )}
 
-          <div className="mt-3 rounded-[16px] overflow-hidden">
-            <MediaBlock asset={asset} />
+          {/* Portrait/square: constrain width so ratio is visually correct inside the wide tweet card */}
+          <div
+            className={`mt-3 rounded-[16px] overflow-hidden${
+              asset.ratio === "portrait"
+                ? " max-w-[280px] mx-auto"
+                : asset.ratio === "square"
+                ? " max-w-[400px] mx-auto"
+                : ""
+            }`}
+          >
+            <MediaBlock asset={asset} platform="x" />
           </div>
 
           <div className="mt-3 flex items-center justify-between text-[#536471]">
