@@ -39,30 +39,16 @@ const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function ratioContainerCls(
-  ratio: UploadedAsset["ratio"],
-  platform: "x" | "telegram"
-): string {
+// X-only: maps detected ratio to the container class X actually uses in its feed.
+// Portrait → 4:5 (X crops portrait in feed, not full 9:16).
+// Landscape → 16:9. Square → 1:1.
+function xRatioContainerCls(ratio: UploadedAsset["ratio"]): string {
   if (ratio === "landscape") return "w-full aspect-video";
-  if (ratio === "square")
-    return platform === "x"
-      ? "w-full aspect-square"
-      : "w-full aspect-square max-h-[370px]";
-  // portrait — use viewport-relative cap so the bubble never scrolls off screen
-  return platform === "x"
-    ? "w-full aspect-[9/16] max-h-[340px]"
-    : "w-full aspect-[9/16] max-h-[calc(100vh-308px)]";
+  if (ratio === "square")    return "w-full aspect-square";
+  return "w-full aspect-[4/5]"; // portrait: X crops to ~4:5 in the feed
 }
 
 // ── Shared media block ────────────────────────────────────────────────────────
-// Border-radius applied DIRECTLY to <img> — the only approach that works
-// reliably across all asset ratios and GPU compositing contexts.
-// Parent overflow-hidden clips differ by aspect-ratio type; inline style does not.
-
-const MEDIA_RADIUS: React.CSSProperties = {
-  borderTopLeftRadius: "1rem",
-  borderTopRightRadius: "1rem",
-};
 
 function MediaBlock({
   asset,
@@ -73,29 +59,28 @@ function MediaBlock({
 }) {
   const [failed, setFailed] = useState(false);
 
-  // Telegram: fixed-height slot, full-width container.
-  // Keeps width at 100% so the parent bubble's overflow-hidden rounded-2xl clips top
-  // corners correctly on every image ratio. Avoids the aspect-ratio + max-height conflict
-  // that shrinks portrait containers to ~2/3 width, breaking corner clipping and pushing
-  // captions off-screen. Parent handles corner rounding; no MEDIA_RADIUS needed here.
   if (platform === "telegram") {
+    // Natural height — no cropping. Telegram shows the full image at whatever
+    // ratio it is. The parent bubble (overflow-hidden rounded-2xl) clips the
+    // top corners. Preview area is overflow-y-auto so tall portraits still scroll.
     return (
-      <div style={{ width: "100%", height: "min(45vh, 340px)" }}>
+      <div style={{ width: "100%" }}>
         {asset.previewUrl && !failed ? (
           <img
             src={asset.previewUrl}
             alt={asset.name}
-            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            style={{ width: "100%", height: "auto", display: "block" }}
             onError={() => setFailed(true)}
           />
         ) : (
-          <div style={{ width: "100%", height: "100%", backgroundColor: "#1d2733" }} />
+          <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />
         )}
       </div>
     );
   }
 
-  const cls = ratioContainerCls(asset.ratio, platform);
+  // X: aspect-ratio container + object-cover to match X feed rendering
+  const cls = xRatioContainerCls(asset.ratio);
   return (
     <div className={cls}>
       {asset.previewUrl && !failed ? (
@@ -103,11 +88,10 @@ function MediaBlock({
           src={asset.previewUrl}
           alt={asset.name}
           className="w-full h-full object-cover block"
-          style={MEDIA_RADIUS}
           onError={() => setFailed(true)}
         />
       ) : (
-        <div className="w-full h-full bg-[#1d2733]" style={MEDIA_RADIUS} />
+        <div className="w-full h-full bg-[#1d2733]" />
       )}
     </div>
   );
@@ -348,16 +332,7 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
             <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
           )}
 
-          {/* Portrait/square: constrain width so ratio is visually correct inside the wide tweet card */}
-          <div
-            className={`mt-3 rounded-[16px] overflow-hidden${
-              asset.ratio === "portrait"
-                ? " max-w-[280px] mx-auto"
-                : asset.ratio === "square"
-                ? " max-w-[400px] mx-auto"
-                : ""
-            }`}
-          >
+          <div className="mt-3 rounded-[16px] overflow-hidden">
             <MediaBlock asset={asset} platform="x" />
           </div>
 
