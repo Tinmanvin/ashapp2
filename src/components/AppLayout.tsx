@@ -15,8 +15,11 @@ import {
   Clapperboard,
   Star,
   Camera,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
+import { useProcessingStore } from "@/store/processingStore";
 
 const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -87,6 +90,9 @@ export default function AppLayout() {
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const { clear: clearPipeline, selectedAssets } = useProcessingStore();
+  const pipelineCount = selectedAssets.length;
 
   const isLibrary = location.pathname === "/library";
 
@@ -182,6 +188,25 @@ export default function AppLayout() {
               );
             })}
           </div>
+
+          {/* Clear pipeline */}
+          {pipelineCount > 0 && (
+            <div className="mt-3 border-t border-border pt-3">
+              <button
+                onClick={() => {
+                  clearPipeline();
+                  toast.success("Pipeline cleared");
+                }}
+                className="flex w-full items-center gap-2.5 rounded-md px-3 py-1.5 text-body text-muted-foreground/60 hover:bg-danger/10 hover:text-danger transition-colors"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <span className="flex-1 text-left font-satoshi">Clear pipeline</span>
+                <span className="rounded-md bg-elevated px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
+                  {pipelineCount}
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Bottom */}
