@@ -70,31 +70,24 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
 
   if (platform === "telegram") {
-    // Border-radius on the <img> directly — parent overflow-hidden rounded-2xl
-    // fails to clip portrait images because tall images are promoted to a separate
-    // GPU compositing layer, bypassing the parent's clip. Inline radius on the img
-    // is compositor-safe and renders correctly on every ratio.
-    // height:auto = full natural ratio, no cropping.
-    const telegramImgStyle: React.CSSProperties = {
-      width: "100%",
-      height: "auto",
+    // maxWidth: absolute px so there's no circular dependency with the fit-content bubble.
+    // maxHeight: keeps the image on-screen regardless of aspect ratio.
+    // width/height auto: browser scales proportionally — portrait images become narrower,
+    // identical to dragging a corner handle smaller (no crop, shape preserved).
+    // clipPath on the img itself: rounding that survives GPU compositing layer promotion.
+    // Parent overflow-hidden cannot clip promoted layers, so we never rely on it here.
+    const imgStyle: React.CSSProperties = {
       display: "block",
-      borderTopLeftRadius: "1rem",
-      borderTopRightRadius: "1rem",
+      maxWidth: "420px",
+      width: "auto",
+      height: "auto",
+      maxHeight: "260px",
+      clipPath: "inset(0 0 0 0 round 1rem 1rem 0 0)",
     };
-    return (
-      <div style={{ width: "100%" }}>
-        {asset.previewUrl && !failed ? (
-          <img
-            src={asset.previewUrl}
-            alt={asset.name}
-            style={telegramImgStyle}
-            onError={() => setFailed(true)}
-          />
-        ) : (
-          <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderTopLeftRadius: "1rem", borderTopRightRadius: "1rem" }} />
-        )}
-      </div>
+    return asset.previewUrl && !failed ? (
+      <img src={asset.previewUrl} alt={asset.name} style={imgStyle} onError={() => setFailed(true)} />
+    ) : (
+      <div style={{ width: "280px", height: "210px", backgroundColor: "#1d2733", clipPath: "inset(0 0 0 0 round 1rem 1rem 0 0)" }} />
     );
   }
 
@@ -396,12 +389,18 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
   const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="mx-auto" style={{ maxWidth: "420px" }}>
-      {/* Bubble — gradient matches real Telegram dark theme */}
-      <div
-        className="w-full overflow-hidden rounded-2xl"
-        style={{ background: "linear-gradient(to right, #342234, #222434)" }}
-      >
+    // width:fit-content makes the bubble shrink-wrap to the image's rendered width.
+    // Portrait images constrained by maxHeight render narrower → bubble matches that width.
+    // minWidth so caption text always has a readable column even with no image.
+    <div
+      className="rounded-2xl mx-auto"
+      style={{
+        background: "linear-gradient(to right, #342234, #222434)",
+        width: "fit-content",
+        maxWidth: "420px",
+        minWidth: "220px",
+      }}
+    >
         {/* Media — borderless, flush to top of bubble */}
         <MediaBlock asset={asset} />
 
@@ -433,7 +432,6 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
             {now}
           </span>
         </div>
-      </div>
     </div>
   );
 }
