@@ -72,6 +72,29 @@ function MediaBlock({
   platform?: "x" | "telegram";
 }) {
   const [failed, setFailed] = useState(false);
+
+  // Telegram: fixed-height slot, full-width container.
+  // Keeps width at 100% so the parent bubble's overflow-hidden rounded-2xl clips top
+  // corners correctly on every image ratio. Avoids the aspect-ratio + max-height conflict
+  // that shrinks portrait containers to ~2/3 width, breaking corner clipping and pushing
+  // captions off-screen. Parent handles corner rounding; no MEDIA_RADIUS needed here.
+  if (platform === "telegram") {
+    return (
+      <div style={{ width: "100%", height: "min(45vh, 340px)" }}>
+        {asset.previewUrl && !failed ? (
+          <img
+            src={asset.previewUrl}
+            alt={asset.name}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <div style={{ width: "100%", height: "100%", backgroundColor: "#1d2733" }} />
+        )}
+      </div>
+    );
+  }
+
   const cls = ratioContainerCls(asset.ratio, platform);
   return (
     <div className={cls}>
