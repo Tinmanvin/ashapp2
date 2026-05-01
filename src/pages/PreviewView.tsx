@@ -70,20 +70,29 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
 
   if (platform === "telegram") {
-    // Natural height — no cropping. Telegram shows the full image at its natural
-    // ratio. Parent bubble (overflow-hidden rounded-2xl) clips the top corners at
-    // full width. Preview area is overflow-y-auto so tall portraits scroll fine.
+    // Border-radius on the <img> directly — parent overflow-hidden rounded-2xl
+    // fails to clip portrait images because tall images are promoted to a separate
+    // GPU compositing layer, bypassing the parent's clip. Inline radius on the img
+    // is compositor-safe and renders correctly on every ratio.
+    // height:auto = full natural ratio, no cropping.
+    const telegramImgStyle: React.CSSProperties = {
+      width: "100%",
+      height: "auto",
+      display: "block",
+      borderTopLeftRadius: "1rem",
+      borderTopRightRadius: "1rem",
+    };
     return (
       <div style={{ width: "100%" }}>
         {asset.previewUrl && !failed ? (
           <img
             src={asset.previewUrl}
             alt={asset.name}
-            style={{ width: "100%", height: "auto", display: "block" }}
+            style={telegramImgStyle}
             onError={() => setFailed(true)}
           />
         ) : (
-          <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />
+          <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderTopLeftRadius: "1rem", borderTopRightRadius: "1rem" }} />
         )}
       </div>
     );
