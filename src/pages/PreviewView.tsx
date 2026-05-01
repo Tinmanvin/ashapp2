@@ -76,18 +76,18 @@ function MediaBlock({
     // identical to dragging a corner handle smaller (no crop, shape preserved).
     // clipPath on the img itself: rounding that survives GPU compositing layer promotion.
     // Parent overflow-hidden cannot clip promoted layers, so we never rely on it here.
-    const imgStyle: React.CSSProperties = {
-      display: "block",
-      maxWidth: "420px",
-      width: "auto",
-      height: "auto",
-      maxHeight: "260px",
-      clipPath: "inset(0 0 0 0 round 1rem 1rem 0 0)",
-    };
+    // Image scales proportionally — width OR height hits its cap first, the other follows.
+    // No crop, no distortion. Bubble width follows image width via fit-content on parent.
+    // borderRadius set directly on <img>: survives GPU layer promotion of tall images.
     return asset.previewUrl && !failed ? (
-      <img src={asset.previewUrl} alt={asset.name} style={imgStyle} onError={() => setFailed(true)} />
+      <img
+        src={asset.previewUrl}
+        alt={asset.name}
+        style={{ display: "block", width: "100%", maxHeight: "55vh", objectFit: "cover" }}
+        onError={() => setFailed(true)}
+      />
     ) : (
-      <div style={{ width: "280px", height: "210px", backgroundColor: "#1d2733", clipPath: "inset(0 0 0 0 round 1rem 1rem 0 0)" }} />
+      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />
     );
   }
 
@@ -393,12 +393,11 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
     // Portrait images constrained by maxHeight render narrower → bubble matches that width.
     // minWidth so caption text always has a readable column even with no image.
     <div
-      className="rounded-2xl mx-auto"
+      className="rounded-2xl mx-auto overflow-hidden"
       style={{
         background: "linear-gradient(to right, #342234, #222434)",
-        width: "fit-content",
-        maxWidth: "420px",
-        minWidth: "220px",
+        width: "320px",
+        maxWidth: "calc(100% - 2rem)",
       }}
     >
         {/* Media — borderless, flush to top of bubble */}
