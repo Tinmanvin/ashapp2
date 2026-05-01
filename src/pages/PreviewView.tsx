@@ -70,12 +70,8 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
 
   if (platform === "telegram") {
-    // transform:translateZ(0) forces this div onto its own GPU compositing layer.
-    // When parent and child share a compositing context, overflow:hidden reliably clips
-    // the image — without it, browsers can promote large images to separate layers,
-    // bypassing the parent's overflow:hidden and making border-radius invisible.
     return asset.previewUrl && !failed ? (
-      <div style={{ overflow: "hidden", borderRadius: "16px 16px 0 0", width: "100%", lineHeight: 0, transform: "translateZ(0)" }}>
+      <div style={{ width: "100%", lineHeight: 0 }}>
         <img
           src={asset.previewUrl}
           alt={asset.name}
@@ -84,7 +80,7 @@ function MediaBlock({
         />
       </div>
     ) : (
-      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderRadius: "16px 16px 0 0" }} />
+      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />
     );
   }
 
@@ -395,6 +391,8 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
         background: "linear-gradient(to right, #342234, #222434)",
         width: "320px",
         maxWidth: "calc(100% - 2rem)",
+        willChange: "transform",
+        contain: "paint" as React.CSSProperties["contain"],
       }}
     >
         {/* Media — borderless, flush to top of bubble */}
