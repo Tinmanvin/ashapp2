@@ -47,17 +47,22 @@ function ratioContainerCls(
   if (ratio === "square")
     return platform === "x"
       ? "w-full aspect-square"
-      : "w-full aspect-square max-h-[380px]";
-  // portrait
+      : "w-full aspect-square max-h-[370px]";
+  // portrait — use viewport-relative cap so the bubble never scrolls off screen
   return platform === "x"
     ? "w-full aspect-[9/16] max-h-[340px]"
-    : "w-full aspect-[9/16] max-h-[480px]";
+    : "w-full aspect-[9/16] max-h-[calc(100vh-308px)]";
 }
 
 // ── Shared media block ────────────────────────────────────────────────────────
-// overflow-hidden + rounded-t-2xl ON THE WRAPPER ITSELF guarantees the image's
-// top corners are clipped at source — parent bubble overflow-hidden is unreliable
-// across GPU compositing layers (framer-motion transforms, gradient backgrounds).
+// Border-radius applied DIRECTLY to <img> — the only approach that works
+// reliably across all asset ratios and GPU compositing contexts.
+// Parent overflow-hidden clips differ by aspect-ratio type; inline style does not.
+
+const MEDIA_RADIUS: React.CSSProperties = {
+  borderTopLeftRadius: "1rem",
+  borderTopRightRadius: "1rem",
+};
 
 function MediaBlock({
   asset,
@@ -69,16 +74,17 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
   const cls = ratioContainerCls(asset.ratio, platform);
   return (
-    <div className={`${cls} overflow-hidden rounded-t-2xl`}>
+    <div className={cls}>
       {asset.previewUrl && !failed ? (
         <img
           src={asset.previewUrl}
           alt={asset.name}
           className="w-full h-full object-cover block"
+          style={MEDIA_RADIUS}
           onError={() => setFailed(true)}
         />
       ) : (
-        <div className="w-full h-full bg-[#1d2733]" />
+        <div className="w-full h-full bg-[#1d2733]" style={MEDIA_RADIUS} />
       )}
     </div>
   );
