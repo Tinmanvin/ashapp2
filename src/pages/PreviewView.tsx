@@ -39,14 +39,24 @@ const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// X-only: maps detected ratio to the container class X actually uses in its feed.
-// Portrait → 4:5 (X crops portrait in feed, not full 9:16).
-// Landscape → 16:9. Square → 1:1.
-function xRatioContainerCls(ratio: UploadedAsset["ratio"]): string {
+function ratioContainerCls(
+  ratio: UploadedAsset["ratio"],
+  platform: "x" | "telegram"
+): string {
   if (ratio === "landscape") return "w-full aspect-video";
-  if (ratio === "square")    return "w-full aspect-square";
-  return "w-full aspect-[4/5]"; // portrait: X crops to ~4:5 in the feed
+  if (ratio === "square")
+    return platform === "x"
+      ? "w-full aspect-square"
+      : "w-full aspect-square max-h-[370px]";
+  return platform === "x"
+    ? "w-full aspect-[9/16] max-h-[340px]"
+    : "w-full aspect-[9/16] max-h-[calc(100vh-308px)]";
 }
+
+const MEDIA_RADIUS: React.CSSProperties = {
+  borderTopLeftRadius: "1rem",
+  borderTopRightRadius: "1rem",
+};
 
 // ── Shared media block ────────────────────────────────────────────────────────
 
@@ -60,9 +70,9 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
 
   if (platform === "telegram") {
-    // Natural height — no cropping. Telegram shows the full image at whatever
-    // ratio it is. The parent bubble (overflow-hidden rounded-2xl) clips the
-    // top corners. Preview area is overflow-y-auto so tall portraits still scroll.
+    // Natural height — no cropping. Telegram shows the full image at its natural
+    // ratio. Parent bubble (overflow-hidden rounded-2xl) clips the top corners at
+    // full width. Preview area is overflow-y-auto so tall portraits scroll fine.
     return (
       <div style={{ width: "100%" }}>
         {asset.previewUrl && !failed ? (
@@ -79,8 +89,8 @@ function MediaBlock({
     );
   }
 
-  // X: aspect-ratio container + object-cover to match X feed rendering
-  const cls = xRatioContainerCls(asset.ratio);
+  // X: original aspect-ratio + max-height approach with MEDIA_RADIUS on img
+  const cls = ratioContainerCls(asset.ratio, "x");
   return (
     <div className={cls}>
       {asset.previewUrl && !failed ? (
@@ -88,10 +98,11 @@ function MediaBlock({
           src={asset.previewUrl}
           alt={asset.name}
           className="w-full h-full object-cover block"
+          style={MEDIA_RADIUS}
           onError={() => setFailed(true)}
         />
       ) : (
-        <div className="w-full h-full bg-[#1d2733]" />
+        <div className="w-full h-full bg-[#1d2733]" style={MEDIA_RADIUS} />
       )}
     </div>
   );
@@ -332,7 +343,15 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
             <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
           )}
 
-          <div className="mt-3 rounded-[16px] overflow-hidden">
+          <div
+            className={`mt-3 rounded-[16px] overflow-hidden${
+              asset.ratio === "portrait"
+                ? " max-w-[280px] mx-auto"
+                : asset.ratio === "square"
+                ? " max-w-[400px] mx-auto"
+                : ""
+            }`}
+          >
             <MediaBlock asset={asset} platform="x" />
           </div>
 
