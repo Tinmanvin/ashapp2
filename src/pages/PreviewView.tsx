@@ -84,62 +84,199 @@ function MediaBlock({ asset }: { asset: UploadedAsset }) {
 }
 
 // ── Telegram sketch background ─────────────────────────────────────────────────
+// 600×600 tile, 22 doodles scattered at pseudo-random positions/rotations/scales
+// stroke: medium indigo (#6862bb) at 0.32 opacity — matches real Telegram wallpaper
+
+const S = "#6862bb"; // doodle stroke colour
+const SW = "1.5";    // stroke width (inside each shape group)
 
 function TelegramBg() {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden">
-      <svg width="100%" height="100%" style={{ opacity: 0.08 }}>
+      <svg width="100%" height="100%" style={{ opacity: 0.32 }}>
         <defs>
-          <pattern id="tg-bg" x="0" y="0" width="300" height="300" patternUnits="userSpaceOnUse">
-            {/* Camera */}
-            <rect x="15" y="40" width="52" height="40" rx="6" fill="none" stroke="white" strokeWidth="2"/>
-            <circle cx="41" cy="60" r="13" fill="none" stroke="white" strokeWidth="2"/>
-            <circle cx="41" cy="60" r="5" fill="none" stroke="white" strokeWidth="1.5"/>
-            <rect x="28" y="34" width="16" height="7" rx="2" fill="none" stroke="white" strokeWidth="1.5"/>
-            <circle cx="61" cy="47" r="3" fill="none" stroke="white" strokeWidth="1.5"/>
+          <pattern id="tg-bg" x="0" y="0" width="600" height="600" patternUnits="userSpaceOnUse">
 
-            {/* Film strip */}
-            <rect x="115" y="15" width="65" height="45" rx="4" fill="none" stroke="white" strokeWidth="2"/>
-            <rect x="115" y="15" width="11" height="45" fill="none" stroke="white" strokeWidth="1.5"/>
-            <rect x="169" y="15" width="11" height="45" fill="none" stroke="white" strokeWidth="1.5"/>
-            <rect x="130" y="24" width="27" height="27" rx="2" fill="none" stroke="white" strokeWidth="1.5"/>
+            {/* ── PANDA  tx:52 ty:42 rot:-15 sc:0.65 ── */}
+            <g transform="translate(52,42) rotate(-15) scale(0.65)">
+              <circle cx="0" cy="0" r="18" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="-12" cy="-13" r="6" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="12" cy="-13" r="6" fill="none" stroke={S} strokeWidth={SW}/>
+              <ellipse cx="-7" cy="-3" rx="5" ry="6" fill="none" stroke={S} strokeWidth={SW}/>
+              <ellipse cx="7" cy="-3" rx="5" ry="6" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="-7" cy="-3" r="2" fill={S}/>
+              <circle cx="7" cy="-3" r="2" fill={S}/>
+              <ellipse cx="0" cy="7" rx="3.5" ry="2" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
 
-            {/* Ice cream */}
-            <ellipse cx="248" cy="36" rx="16" ry="10" fill="none" stroke="white" strokeWidth="2"/>
-            <path d="M232 36 L242 70 L254 70 L264 36" fill="none" stroke="white" strokeWidth="2"/>
-            <path d="M232 44 Q248 40 264 44" fill="none" stroke="white" strokeWidth="1"/>
-            <line x1="248" y1="26" x2="248" y2="12" stroke="white" strokeWidth="2"/>
-            <circle cx="248" cy="9" r="4" fill="none" stroke="white" strokeWidth="1.5"/>
+            {/* ── PINEAPPLE  tx:232 ty:25 rot:22 sc:0.68 ── */}
+            <g transform="translate(232,25) rotate(22) scale(0.68)">
+              <ellipse cx="0" cy="10" rx="13" ry="18" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M-8-6 Q-5-22 0-18 Q5-22 8-6" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="-11" y1="2" x2="11" y2="2" stroke={S} strokeWidth="1"/>
+              <line x1="-12" y1="10" x2="12" y2="10" stroke={S} strokeWidth="1"/>
+              <line x1="-10" y1="18" x2="10" y2="18" stroke={S} strokeWidth="1"/>
+              <line x1="-4" y1="-6" x2="-5" y2="27" stroke={S} strokeWidth="1"/>
+              <line x1="0" y1="-6" x2="0" y2="28" stroke={S} strokeWidth="1"/>
+              <line x1="4" y1="-6" x2="5" y2="27" stroke={S} strokeWidth="1"/>
+            </g>
 
-            {/* Pineapple */}
-            <ellipse cx="35" cy="178" rx="20" ry="28" fill="none" stroke="white" strokeWidth="2"/>
-            <path d="M22 150 Q35 132 48 150" fill="none" stroke="white" strokeWidth="1.5"/>
-            <path d="M18 162 Q35 157 52 162" fill="none" stroke="white" strokeWidth="1"/>
-            <path d="M16 172 Q35 167 54 172" fill="none" stroke="white" strokeWidth="1"/>
-            <path d="M18 182 Q35 177 52 182" fill="none" stroke="white" strokeWidth="1"/>
-            <line x1="27" y1="149" x2="25" y2="204" stroke="white" strokeWidth="1"/>
-            <line x1="35" y1="132" x2="35" y2="206" stroke="white" strokeWidth="1"/>
-            <line x1="43" y1="149" x2="45" y2="204" stroke="white" strokeWidth="1"/>
+            {/* ── ICE CREAM  tx:418 ty:54 rot:-8 sc:0.60 ── */}
+            <g transform="translate(418,54) rotate(-8) scale(0.60)">
+              <circle cx="0" cy="-12" r="13" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M-12 0 L-6 24 L6 24 L12 0" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="-3" y1="0" x2="0" y2="24" stroke={S} strokeWidth="1"/>
+              <line x1="3" y1="0" x2="0" y2="24" stroke={S} strokeWidth="1"/>
+              <path d="M0-25 Q5-30 0-33 Q-5-30 0-25" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
 
-            {/* Star */}
-            <path d="M155 140 L160 156 L177 156 L164 165 L169 181 L155 172 L141 181 L146 165 L133 156 L150 156 Z" fill="none" stroke="white" strokeWidth="2"/>
+            {/* ── STAR  tx:556 ty:35 rot:30 sc:0.72 ── */}
+            <g transform="translate(556,35) rotate(30) scale(0.72)">
+              <path d="M0-22 L5-8 L21-8 L9 2 L13 18 L0 9 L-13 18 L-9 2 L-21-8 L-5-8 Z" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
 
-            {/* Lightning bolt */}
-            <path d="M246 118 L228 162 L244 157 L224 198 L250 156 L234 161 Z" fill="none" stroke="white" strokeWidth="2"/>
+            {/* ── PIZZA SLICE  tx:140 ty:150 rot:38 sc:0.65 ── */}
+            <g transform="translate(140,150) rotate(38) scale(0.65)">
+              <path d="M0-26 L-19 18 Q0 23 19 18 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M-13 12 Q0 16 13 12" fill="none" stroke={S} strokeWidth="1"/>
+              <circle cx="-7" cy="2" r="2.5" fill={S}/>
+              <circle cx="7" cy="7" r="2" fill={S}/>
+              <circle cx="0" cy="-8" r="2" fill={S}/>
+            </g>
 
-            {/* Christmas tree */}
-            <path d="M50 292 L32 262 L46 262 L27 232 L42 232 L22 202 L78 202 L58 232 L73 232 L54 262 L68 262 Z" fill="none" stroke="white" strokeWidth="2"/>
-            <rect x="42" y="292" width="16" height="14" fill="none" stroke="white" strokeWidth="2"/>
-            <circle cx="50" cy="210" r="3" fill="none" stroke="white" strokeWidth="1.5"/>
-            <circle cx="38" cy="234" r="2.5" fill="none" stroke="white" strokeWidth="1.5"/>
-            <circle cx="62" cy="240" r="2.5" fill="none" stroke="white" strokeWidth="1.5"/>
+            {/* ── HEART  tx:316 ty:132 rot:-22 sc:0.56 ── */}
+            <g transform="translate(316,132) rotate(-22) scale(0.56)">
+              <path d="M0 18 Q-22-4 -22-16 Q-22-30-11-30 Q-4-30 0-20 Q4-30 11-30 Q22-30 22-16 Q22-4 0 18 Z" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
 
-            {/* Crown */}
-            <path d="M187 270 L174 246 L190 259 L202 237 L214 259 L230 246 L217 270 Z" fill="none" stroke="white" strokeWidth="2"/>
-            <line x1="174" y1="270" x2="217" y2="270" stroke="white" strokeWidth="2"/>
-            <circle cx="202" cy="237" r="3" fill="white"/>
-            <circle cx="174" cy="246" r="2.5" fill="white"/>
-            <circle cx="230" cy="246" r="2.5" fill="white"/>
+            {/* ── FISH  tx:490 ty:160 rot:15 sc:0.72 ── */}
+            <g transform="translate(490,160) rotate(15) scale(0.72)">
+              <ellipse cx="-2" cy="0" rx="17" ry="10" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M15 0 L28-12 L28 12 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="-10" cy="-3" r="2" fill={S}/>
+            </g>
+
+            {/* ── DONUT  tx:28 ty:268 rot:20 sc:0.70 ── */}
+            <g transform="translate(28,268) rotate(20) scale(0.70)">
+              <circle cx="0" cy="0" r="18" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="0" r="8" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── BONE  tx:204 ty:255 rot:-38 sc:0.62 ── */}
+            <g transform="translate(204,255) rotate(-38) scale(0.62)">
+              <line x1="-18" y1="0" x2="18" y2="0" stroke={S} strokeWidth={SW}/>
+              <circle cx="-22" cy="-4" r="5" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="-22" cy="4" r="5" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="22" cy="-4" r="5" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="22" cy="4" r="5" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── BIRD  tx:378 ty:270 rot:-10 sc:0.78 ── */}
+            <g transform="translate(378,270) rotate(-10) scale(0.78)">
+              <ellipse cx="0" cy="5" rx="10" ry="13" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="-11" r="8" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M8-11 L20-8 L16-5" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="-5" y1="18" x2="-7" y2="28" stroke={S} strokeWidth={SW}/>
+              <line x1="5" y1="18" x2="3" y2="28" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── GIFT BOX  tx:546 ty:250 rot:28 sc:0.63 ── */}
+            <g transform="translate(546,250) rotate(28) scale(0.63)">
+              <rect x="-16" y="-12" width="32" height="26" rx="2" fill="none" stroke={S} strokeWidth={SW}/>
+              <rect x="-16" y="-19" width="32" height="8" rx="2" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="0" y1="-19" x2="0" y2="14" stroke={S} strokeWidth={SW}/>
+              <path d="M0-19 Q-8-30 -10-21 Q-12-13 0-13 Q12-13 10-21 Q8-30 0-19" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── ROCKET  tx:92 ty:382 rot:42 sc:0.68 ── */}
+            <g transform="translate(92,382) rotate(42) scale(0.68)">
+              <path d="M0-26 Q14 0 10 20 L0 16 L-10 20 Q-14 0 0-26 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M10 20 L18 32 L0 26 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M-10 20 L-18 32 L0 26 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="-4" r="5" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── FLOWER  tx:265 ty:378 rot:-18 sc:0.72 ── */}
+            <g transform="translate(265,378) rotate(-18) scale(0.72)">
+              <circle cx="0" cy="0" r="6" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="-15" r="7" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="13" cy="-7" r="7" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="13" cy="7" r="7" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="15" r="7" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="-13" cy="7" r="7" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="-13" cy="-7" r="7" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── AVOCADO  tx:432 ty:370 rot:25 sc:0.60 ── */}
+            <g transform="translate(432,370) rotate(25) scale(0.60)">
+              <path d="M0-26 Q22 0 16 18 Q8 32 0 32 Q-8 32 -16 18 Q-22 0 0-26 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="12" r="8" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── BELL  tx:578 ty:390 rot:-30 sc:0.65 ── */}
+            <g transform="translate(578,390) rotate(-30) scale(0.65)">
+              <path d="M0-20 Q-18-14 -18 5 L-18 15 L18 15 L18 5 Q18-14 0-20 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <path d="M-6 15 Q0 23 6 15" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="-22" r="3" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── CROWN  tx:55 ty:490 rot:-18 sc:0.70 ── */}
+            <g transform="translate(55,490) rotate(-18) scale(0.70)">
+              <path d="M-22 10 L-22-8 L-11 6 L0-16 L11 6 L22-8 L22 10 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="-22" y1="10" x2="22" y2="10" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="-16" r="3" fill={S}/>
+              <circle cx="-22" cy="-8" r="2.5" fill={S}/>
+              <circle cx="22" cy="-8" r="2.5" fill={S}/>
+            </g>
+
+            {/* ── LEAF  tx:218 ty:486 rot:45 sc:0.75 ── */}
+            <g transform="translate(218,486) rotate(45) scale(0.75)">
+              <path d="M0 22 Q-20-8 0-24 Q20-8 0 22 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="0" y1="-24" x2="0" y2="22" stroke={S} strokeWidth="1"/>
+              <line x1="0" y1="-8" x2="-10" y2="2" stroke={S} strokeWidth="1"/>
+              <line x1="0" y1="2" x2="10" y2="10" stroke={S} strokeWidth="1"/>
+              <line x1="0" y1="10" x2="-8" y2="18" stroke={S} strokeWidth="1"/>
+            </g>
+
+            {/* ── BANANA  tx:388 ty:500 rot:-28 sc:0.66 ── */}
+            <g transform="translate(388,500) rotate(-28) scale(0.66)">
+              <path d="M-16-8 Q-22-22 -6-28 Q12-32 22-12 Q28 4 12 16 Q-2 22 -10 12 Q-16 4 -16-8 Z" fill="none" stroke={S} strokeWidth={SW}/>
+              <line x1="-6" y1="-28" x2="-2" y2="-22" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── SPIRAL  tx:548 ty:486 rot:14 sc:0.70 ── */}
+            <g transform="translate(548,486) rotate(14) scale(0.70)">
+              <path d="M0 0 Q12 0 12-12 Q12-24 0-24 Q-24-24 -24 0 Q-24 24 0 26 Q26 26 28 0" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="0" r="3" fill="none" stroke={S} strokeWidth="1"/>
+            </g>
+
+            {/* ── SMALL STAR  tx:148 ty:568 rot:-10 sc:0.52 ── */}
+            <g transform="translate(148,568) rotate(-10) scale(0.52)">
+              <path d="M0-22 L5-8 L21-8 L9 2 L13 18 L0 9 L-13 18 L-9 2 L-21-8 L-5-8 Z" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── SMALL HEART  tx:312 ty:565 rot:25 sc:0.55 ── */}
+            <g transform="translate(312,565) rotate(25) scale(0.55)">
+              <path d="M0 18 Q-22-4 -22-16 Q-22-30-11-30 Q-4-30 0-20 Q4-30 11-30 Q22-30 22-16 Q22-4 0 18 Z" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── SMALL DONUT  tx:472 ty:572 rot:-5 sc:0.63 ── */}
+            <g transform="translate(472,572) rotate(-5) scale(0.63)">
+              <circle cx="0" cy="0" r="18" fill="none" stroke={S} strokeWidth={SW}/>
+              <circle cx="0" cy="0" r="8" fill="none" stroke={S} strokeWidth={SW}/>
+            </g>
+
+            {/* ── DECORATIVE DOTS (scattered) ── */}
+            <circle cx="168" cy="68" r="3" fill="none" stroke={S} strokeWidth="1.2"/>
+            <circle cx="356" cy="48" r="2.5" fill={S}/>
+            <circle cx="292" cy="198" r="2" fill={S}/>
+            <circle cx="460" cy="292" r="3" fill="none" stroke={S} strokeWidth="1.2"/>
+            <circle cx="178" cy="342" r="2.5" fill={S}/>
+            <circle cx="512" cy="446" r="2" fill="none" stroke={S} strokeWidth="1.2"/>
+            <circle cx="340" cy="452" r="2.5" fill={S}/>
+            <circle cx="72" cy="148" r="2" fill={S}/>
+            <circle cx="502" cy="88" r="2.5" fill="none" stroke={S} strokeWidth="1.2"/>
+
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#tg-bg)"/>
