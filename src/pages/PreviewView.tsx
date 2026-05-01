@@ -38,8 +38,6 @@ const TAB_TO_PLATFORM_ID: Record<string, string> = {
 const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-// Wrapper div sets the aspect-ratio box; NO overflow-hidden here so the parent
-// container's rounded-2xl / rounded-[16px] is the only clipping authority.
 
 function ratioContainerCls(
   ratio: UploadedAsset["ratio"],
@@ -57,6 +55,9 @@ function ratioContainerCls(
 }
 
 // ── Shared media block ────────────────────────────────────────────────────────
+// overflow-hidden + rounded-t-2xl ON THE WRAPPER ITSELF guarantees the image's
+// top corners are clipped at source — parent bubble overflow-hidden is unreliable
+// across GPU compositing layers (framer-motion transforms, gradient backgrounds).
 
 function MediaBlock({
   asset,
@@ -68,7 +69,7 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
   const cls = ratioContainerCls(asset.ratio, platform);
   return (
-    <div className={cls}>
+    <div className={`${cls} overflow-hidden rounded-t-2xl`}>
       {asset.previewUrl && !failed ? (
         <img
           src={asset.previewUrl}
