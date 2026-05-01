@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import { type UploadedAsset } from '@/hooks/useFileUpload'
 
 interface ProcessingStore {
@@ -8,9 +9,14 @@ interface ProcessingStore {
   clear: () => void
 }
 
-export const useProcessingStore = create<ProcessingStore>((set) => ({
-  selectedAssets: [],
-  selectedPlatforms: [],
-  setProcessingJob: (assets, platforms) => set({ selectedAssets: assets, selectedPlatforms: platforms }),
-  clear: () => set({ selectedAssets: [], selectedPlatforms: [] }),
-}))
+export const useProcessingStore = create<ProcessingStore>()(
+  persist(
+    (set) => ({
+      selectedAssets: [],
+      selectedPlatforms: [],
+      setProcessingJob: (assets, platforms) => set({ selectedAssets: assets, selectedPlatforms: platforms }),
+      clear: () => set({ selectedAssets: [], selectedPlatforms: [] }),
+    }),
+    { name: 'blackmagic-processing-job' }
+  )
+)
