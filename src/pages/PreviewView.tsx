@@ -70,24 +70,20 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
 
   if (platform === "telegram") {
-    // maxWidth: absolute px so there's no circular dependency with the fit-content bubble.
-    // maxHeight: keeps the image on-screen regardless of aspect ratio.
-    // width/height auto: browser scales proportionally — portrait images become narrower,
-    // identical to dragging a corner handle smaller (no crop, shape preserved).
-    // clipPath on the img itself: rounding that survives GPU compositing layer promotion.
-    // Parent overflow-hidden cannot clip promoted layers, so we never rely on it here.
-    // Image scales proportionally — width OR height hits its cap first, the other follows.
-    // No crop, no distortion. Bubble width follows image width via fit-content on parent.
-    // borderRadius set directly on <img>: survives GPU layer promotion of tall images.
+    // Wrapper div owns the clip. A plain div's overflow:hidden is never bypassed by GPU
+    // layer promotion — unlike borderRadius on <img> or parent overflow-hidden, which both
+    // fail when the browser promotes PNG images to their own compositing layer.
     return asset.previewUrl && !failed ? (
-      <img
-        src={asset.previewUrl}
-        alt={asset.name}
-        style={{ display: "block", width: "100%", maxHeight: "55vh", objectFit: "cover", borderRadius: "1rem 1rem 0 0" }}
-        onError={() => setFailed(true)}
-      />
+      <div style={{ overflow: "hidden", borderRadius: "1rem 1rem 0 0", width: "100%", lineHeight: 0 }}>
+        <img
+          src={asset.previewUrl}
+          alt={asset.name}
+          style={{ display: "block", width: "100%", height: "auto", maxHeight: "55vh", objectFit: "cover" }}
+          onError={() => setFailed(true)}
+        />
+      </div>
     ) : (
-      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />
+      <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderRadius: "1rem 1rem 0 0" }} />
     );
   }
 
