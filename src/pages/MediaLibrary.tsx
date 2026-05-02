@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Grid3X3,
-  List,
+  Trash2,
   Upload,
   Play,
   Image as ImageIcon,
@@ -268,7 +268,7 @@ export default function MediaLibrary() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
-  const { assets, isProcessing, processFiles, updateEpisodeTag } = useFileUpload();
+  const { assets, isProcessing, processFiles, removeAssets, updateEpisodeTag } = useFileUpload();
 
   // ── Filtered assets ────────────────────────────────────────────────────────
 
@@ -303,6 +303,22 @@ export default function MediaLibrary() {
     );
 
   const hasSelection = selected.length > 0;
+
+  const handleDeleteAll = useCallback(() => {
+    if (!assets.length) return;
+    if (!window.confirm(`Delete all ${assets.length} asset${assets.length === 1 ? "" : "s"} from the library? This also removes them from storage and cannot be undone.`)) return;
+    removeAssets(assets.map((a) => a.id));
+    setSelected([]);
+    toast.success("All assets deleted");
+  }, [assets, removeAssets]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (!selected.length) return;
+    if (!window.confirm(`Delete ${selected.length} selected asset${selected.length === 1 ? "" : "s"}? This also removes them from storage and cannot be undone.`)) return;
+    removeAssets(selected);
+    setSelected([]);
+    toast.success(`${selected.length} asset${selected.length === 1 ? "" : "s"} deleted`);
+  }, [selected, removeAssets]);
 
   // ── Drag & drop ────────────────────────────────────────────────────────────
 
@@ -415,8 +431,13 @@ export default function MediaLibrary() {
               <button className="rounded-md p-1.5 text-muted-foreground glass-button hover:text-foreground">
                 <Grid3X3 className="h-4 w-4" />
               </button>
-              <button className="rounded-md p-1.5 text-muted-foreground glass-button hover:text-foreground">
-                <List className="h-4 w-4" />
+              <button
+                onClick={handleDeleteAll}
+                disabled={!assets.length}
+                className="rounded-md p-1.5 text-danger/60 glass-button hover:text-danger transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Delete all assets"
+              >
+                <Trash2 className="h-4 w-4" />
               </button>
             </div>
           </div>
@@ -684,8 +705,15 @@ export default function MediaLibrary() {
                   <p className="mt-3 text-micro text-muted-foreground/60 font-satoshi">
                     Censoring rules applied automatically per platform
                   </p>
-                  <div className="mt-3">
+                  <div className="mt-3 flex items-center gap-2">
                     <BulkTagPill selectedIds={selected} onUpdate={updateEpisodeTag} />
+                    <button
+                      onClick={handleDeleteSelected}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-danger/10 border-danger/30 text-danger hover:bg-danger/20"
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                      <span>Delete {selected.length}</span>
+                    </button>
                   </div>
                 </div>
 

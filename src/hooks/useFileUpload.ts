@@ -302,12 +302,10 @@ export function useFileUpload() {
       .eq('id', id);
   }, []);
 
-  // ── Remove asset ───────────────────────────────────────────────────────────
+  // ── Remove single asset ────────────────────────────────────────────────────
   const removeAsset = useCallback(async (id: string) => {
-    // Optimistic remove from UI
     setAssets((prev) => prev.filter((a) => a.id !== id));
 
-    // Delete from DB and retrieve storage keys for cleanup
     const { data: row } = await supabase
       .from('assets')
       .delete()
@@ -315,7 +313,6 @@ export function useFileUpload() {
       .select('storage_key, thumb_key')
       .single();
 
-    // Clean up storage files in background (best-effort)
     if (row) {
       const r2Ready = isR2Configured();
       if (r2Ready) {
@@ -328,5 +325,31 @@ export function useFileUpload() {
     }
   }, []);
 
-  return { assets, isLoading, isProcessing, processFiles, removeAsset, updateEpisodeTag };
+  // ── Remove multiple assets (batch) ─────────────────────────────────────────
+  const removeAssets = useCallback(async (ids: string[]) => {
+    if (!ids.length) return;
+
+    setAssets((prev) => prev.filter((a) => !ids.includes(a.id)));
+
+    const { data: rows } = await supabase
+      .from('assets')
+      .delete()
+      .in('id', ids)
+      .select('storage_key, thumb_key');
+
+    if (rows?.length) {
+      const r2Ready = isR2Configured();
+      for (const row of rows) {
+        if (r2Ready) {
+          if (row.storage_key) deleteFromR2(row.storage_key).catch(() => {});
+          if (row.thumb_key) deleteFromR2(row.thumb_key).catch(() => {});
+        } else {
+          if (row.storage_key) supabase.storage.from('assets').remove([row.storage_key]).catch(() => {});
+          if (row.thumb_key) supabase.storage.from('assets').remove([row.thumb_key]).catch(() => {});
+        }
+      }
+    }
+  }, []);
+
+  return { assets, isLoading, isProcessing, processFiles, removeAsset, removeAssets, updateEpisodeTag };
 }
