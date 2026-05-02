@@ -59,13 +59,19 @@ const MEDIA_RADIUS: React.CSSProperties = {
 };
 
 // ── Liquid glass play button — hover only, video assets only ──────────────────
+// Grid overlay pattern: both children share grid area 1/1, so the overlay is
+// always exactly the image's rendered dimensions — bulletproof centering.
+// Scale 0.8→1 pop-in masks the backdrop-filter GPU warm-up frame.
 
 function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: React.ReactNode }) {
   if (!isVideo) return <>{children}</>;
   return (
-    <div className="relative group/video">
-      {children}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity duration-200 pointer-events-none">
+    <div style={{ display: "grid" }} className="group/video">
+      <div style={{ gridArea: "1 / 1" }}>{children}</div>
+      <div
+        style={{ gridArea: "1 / 1", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}
+        className="opacity-0 scale-75 group-hover/video:opacity-100 group-hover/video:scale-100 transition-[opacity,transform] duration-[180ms] ease-out"
+      >
         <div
           style={{
             width: 56,
@@ -81,7 +87,6 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
             justifyContent: "center",
           }}
         >
-          {/* Play triangle — offset 3px right to optically centre */}
           <div
             style={{
               marginLeft: 4,
