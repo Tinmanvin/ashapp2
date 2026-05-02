@@ -98,7 +98,7 @@ function MediaBlock({
       <img
         src={asset.previewUrl}
         alt={asset.name}
-        style={{ display: "block", width: "auto", maxWidth: "100%", height: "auto", maxHeight: "50vh", margin: "0 auto", ...MEDIA_RADIUS }}
+        style={{ display: "block", width: "auto", maxWidth: "100%", height: "auto", maxHeight: "50vh", ...MEDIA_RADIUS }}
         onError={() => setFailed(true)}
       />
     );
@@ -172,7 +172,7 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
           <div
             className={`mt-3 rounded-[16px] overflow-hidden${
               asset.ratio === "portrait"
-                ? " max-w-[280px] mx-auto"
+                ? " max-w-[280px]"
                 : asset.ratio === "square"
                 ? " max-w-[400px] mx-auto"
                 : ""
