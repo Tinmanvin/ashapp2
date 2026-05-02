@@ -82,12 +82,7 @@ function MediaBlock({
       <img
         src={asset.previewUrl}
         alt=""
-        style={{
-          display: "block",
-          width: "100%",
-          height: "auto",
-          clipPath: "inset(0 round 1rem 1rem 0 0)",
-        }}
+        style={{ display: "block", width: "100%", height: "auto", ...MEDIA_RADIUS }}
         onError={() => setFailed(true)}
       />
     );
