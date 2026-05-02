@@ -141,7 +141,7 @@ function TelegramBg() {
 function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
   return (
     <div
-      className="mx-auto max-w-[598px] border border-[#2f3336] rounded-2xl px-4 py-4"
+      className={`mx-auto border border-[#2f3336] rounded-2xl px-4 py-4 ${asset.ratio !== "landscape" ? "max-w-[440px]" : "max-w-[598px]"}`}
       style={{
         backgroundColor: "#000",
         fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
