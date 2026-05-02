@@ -58,6 +58,47 @@ const MEDIA_RADIUS: React.CSSProperties = {
   borderTopRightRadius: "1rem",
 };
 
+// ── Liquid glass play button — hover only, video assets only ──────────────────
+
+function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: React.ReactNode }) {
+  if (!isVideo) return <>{children}</>;
+  return (
+    <div className="relative group/video">
+      {children}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity duration-200 pointer-events-none">
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            backdropFilter: "blur(16px) saturate(2)",
+            WebkitBackdropFilter: "blur(16px) saturate(2)",
+            background: "rgba(255, 255, 255, 0.18)",
+            border: "1.5px solid rgba(255, 255, 255, 0.45)",
+            boxShadow: "0 6px 32px rgba(0,0,0,0.28), inset 0 1.5px 0 rgba(255,255,255,0.55), inset 0 -1px 0 rgba(0,0,0,0.08)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {/* Play triangle — offset 3px right to optically centre */}
+          <div
+            style={{
+              marginLeft: 4,
+              width: 0,
+              height: 0,
+              borderTop: "10px solid transparent",
+              borderBottom: "10px solid transparent",
+              borderLeft: "17px solid rgba(255,255,255,0.92)",
+              filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.3))",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Shared media block ────────────────────────────────────────────────────────
 
 function MediaBlock({
@@ -178,7 +219,9 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
                 : ""
             }`}
           >
-            <MediaBlock asset={asset} platform="x" />
+            <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+              <MediaBlock asset={asset} platform="x" />
+            </VideoPlayOverlay>
           </div>
 
           <div className="mt-3 flex items-center justify-between text-[#536471]">
@@ -223,7 +266,9 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
     >
         {/* Image — GPU-composited wrapper so overflow:hidden clips promoted img layer */}
         <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
-          <MediaBlock asset={asset} />
+          <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+            <MediaBlock asset={asset} />
+          </VideoPlayOverlay>
         </div>
 
         {/* Caption */}
