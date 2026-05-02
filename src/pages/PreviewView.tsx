@@ -394,8 +394,8 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
         maxWidth: "calc(100% - 2rem)",
       }}
     >
-        {/* Image — dedicated rounded overflow wrapper, exactly like X */}
-        <div className="rounded-t-2xl overflow-hidden">
+        {/* Image — GPU-composited wrapper so overflow:hidden clips promoted img layer */}
+        <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
           <MediaBlock asset={asset} />
         </div>
 
