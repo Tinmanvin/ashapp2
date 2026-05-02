@@ -336,18 +336,23 @@ export default function PreviewView() {
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Hotkey: 'A' → approve current asset + advance to next
+  // Hotkeys: 'A' → approve + next | ArrowLeft/Right → navigate
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== "a" && e.key !== "A") return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (!currentAsset) return;
-      setApprovedIds((prev) => {
-        const next = new Set(prev);
-        next.add(currentAsset.id);
-        return next;
-      });
-      setCurrentIdx((i) => Math.min(totalAssets - 1, i + 1));
+      if (e.key === "ArrowLeft") {
+        setCurrentIdx((i) => Math.max(0, i - 1));
+      } else if (e.key === "ArrowRight") {
+        setCurrentIdx((i) => Math.min(totalAssets - 1, i + 1));
+      } else if (e.key === "a" || e.key === "A") {
+        if (!currentAsset) return;
+        setApprovedIds((prev) => {
+          const next = new Set(prev);
+          next.add(currentAsset.id);
+          return next;
+        });
+        setCurrentIdx((i) => Math.min(totalAssets - 1, i + 1));
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
