@@ -94,12 +94,10 @@ function MediaBlock({
           style={{
             width: "100%",
             aspectRatio: imgSize ? `${imgSize.w} / ${imgSize.h}` : "4 / 3",
-            maxHeight: "55vh",
             backgroundImage: `url("${asset.previewUrl}")`,
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
             backgroundPosition: "center center",
-            borderRadius: "16px 16px 0 0",
           }}
         />
       </>
@@ -405,11 +403,13 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
 
   return (
     <div
-      className="rounded-2xl mx-auto overflow-hidden"
+      className="mx-auto"
       style={{
         background: "linear-gradient(to right, #342234, #222434)",
         width: "320px",
         maxWidth: "calc(100% - 2rem)",
+        borderRadius: "1rem",
+        overflow: "hidden",
       }}
     >
         {/* Media — borderless, flush to top of bubble */}
