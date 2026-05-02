@@ -88,7 +88,23 @@ function MediaBlock({
     );
   }
 
-  // X: original aspect-ratio + max-height approach with MEDIA_RADIUS on img
+  // X portrait: natural aspect ratio, no letterbox, capped to fit screen
+  // (fixed 9:16 container causes black bars on 3:4 iPhone photos and overflows on tall videos)
+  if (asset.ratio === "portrait") {
+    if (!asset.previewUrl || failed) {
+      return <div style={{ width: "100%", aspectRatio: "3/4", backgroundColor: "#1d2733", borderRadius: "1rem" }} />;
+    }
+    return (
+      <img
+        src={asset.previewUrl}
+        alt={asset.name}
+        style={{ display: "block", width: "100%", height: "auto", maxHeight: "50vh", ...MEDIA_RADIUS }}
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  // X landscape / square: fixed ratio container, object-cover (unchanged)
   const cls = ratioContainerCls(asset.ratio, "x");
   return (
     <div className={cls}>
@@ -96,7 +112,7 @@ function MediaBlock({
         <img
           src={asset.previewUrl}
           alt={asset.name}
-          className={`w-full h-full block ${asset.ratio === "portrait" ? "object-contain" : "object-cover"}`}
+          className="w-full h-full object-cover block"
           style={MEDIA_RADIUS}
           onError={() => setFailed(true)}
         />
