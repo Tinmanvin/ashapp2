@@ -49,7 +49,7 @@ function ratioContainerCls(
       ? "w-full aspect-square"
       : "w-full aspect-square max-h-[370px]";
   return platform === "x"
-    ? "w-full aspect-[9/16] max-h-[340px]"
+    ? "w-full aspect-[9/16] max-h-[520px]"
     : "w-full aspect-[9/16] max-h-[calc(100vh-308px)]";
 }
 
@@ -96,7 +96,7 @@ function MediaBlock({
         <img
           src={asset.previewUrl}
           alt={asset.name}
-          className="w-full h-full object-cover block"
+          className={`w-full h-full block ${asset.ratio === "portrait" ? "object-contain" : "object-cover"}`}
           style={MEDIA_RADIUS}
           onError={() => setFailed(true)}
         />
