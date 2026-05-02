@@ -387,17 +387,17 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
 
   return (
     <div
-      className="mx-auto"
+      className="mx-auto rounded-2xl overflow-hidden"
       style={{
         background: "linear-gradient(to right, #342234, #222434)",
         width: "320px",
         maxWidth: "calc(100% - 2rem)",
-        borderRadius: "1rem",
-        overflow: "hidden",
       }}
     >
-        {/* Media — borderless, flush to top of bubble */}
-        <MediaBlock asset={asset} />
+        {/* Image — dedicated rounded overflow wrapper, exactly like X */}
+        <div className="rounded-t-2xl overflow-hidden">
+          <MediaBlock asset={asset} />
+        </div>
 
         {/* Caption */}
         <div className="px-3 pt-2">
