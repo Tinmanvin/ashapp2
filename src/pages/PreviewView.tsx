@@ -70,7 +70,6 @@ function MediaBlock({
   const [failed, setFailed] = useState(false);
   const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
 
-  // Reset dimensions when asset changes
   useEffect(() => {
     setImgSize(null);
     setFailed(false);
@@ -78,7 +77,7 @@ function MediaBlock({
 
   if (platform === "telegram") {
     if (!asset.previewUrl || failed) {
-      return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />;
+      return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderRadius: "16px 16px 0 0" }} />;
     }
 
     return (
@@ -87,10 +86,7 @@ function MediaBlock({
           <img
             src={asset.previewUrl}
             style={{ display: "none" }}
-            onLoad={(e) => {
-              const el = e.currentTarget;
-              setImgSize({ w: el.naturalWidth, h: el.naturalHeight });
-            }}
+            onLoad={(e) => setImgSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
             onError={() => setFailed(true)}
           />
         )}
@@ -98,11 +94,11 @@ function MediaBlock({
           style={{
             width: "100%",
             aspectRatio: imgSize ? `${imgSize.w} / ${imgSize.h}` : "4 / 3",
-            maxHeight: "42vh",
+            maxHeight: "55vh",
             backgroundImage: `url("${asset.previewUrl}")`,
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
-            backgroundPosition: "center top",
+            backgroundPosition: "center center",
             borderRadius: "16px 16px 0 0",
           }}
         />
@@ -408,9 +404,6 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
   const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
-    // width:fit-content makes the bubble shrink-wrap to the image's rendered width.
-    // Portrait images constrained by maxHeight render narrower → bubble matches that width.
-    // minWidth so caption text always has a readable column even with no image.
     <div
       className="rounded-2xl mx-auto overflow-hidden"
       style={{
