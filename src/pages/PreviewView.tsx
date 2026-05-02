@@ -68,39 +68,28 @@ function MediaBlock({
   platform?: "x" | "telegram";
 }) {
   const [failed, setFailed] = useState(false);
-  const [imgSize, setImgSize] = useState<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
-    setImgSize(null);
     setFailed(false);
   }, [asset.previewUrl]);
 
   if (platform === "telegram") {
     if (!asset.previewUrl || failed) {
-      return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", borderRadius: "16px 16px 0 0" }} />;
+      return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", clipPath: "inset(0 round 1rem 1rem 0 0)" }} />;
     }
 
     return (
-      <>
-        {!imgSize && (
-          <img
-            src={asset.previewUrl}
-            style={{ display: "none" }}
-            onLoad={(e) => setImgSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
-            onError={() => setFailed(true)}
-          />
-        )}
-        <div
-          style={{
-            width: "100%",
-            aspectRatio: imgSize ? `${imgSize.w} / ${imgSize.h}` : "4 / 3",
-            backgroundImage: `url("${asset.previewUrl}")`,
-            backgroundSize: "cover",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center center",
-          }}
-        />
-      </>
+      <img
+        src={asset.previewUrl}
+        alt=""
+        style={{
+          display: "block",
+          width: "100%",
+          height: "auto",
+          clipPath: "inset(0 round 1rem 1rem 0 0)",
+        }}
+        onError={() => setFailed(true)}
+      />
     );
   }
 
