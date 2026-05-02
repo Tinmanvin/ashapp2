@@ -81,15 +81,6 @@ function MediaBlock({
       return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733" }} />;
     }
 
-    // Portrait images: shrink width so height stays ≤40vh (full image visible, no crop).
-    // Landscape/square: full card width.
-    // Background-image divs are never GPU-promoted, so border-radius always clips reliably.
-    const isPortrait = imgSize ? imgSize.h > imgSize.w : false;
-    const ratio = imgSize ? imgSize.w / imgSize.h : 1;
-    const divWidth = isPortrait
-      ? `min(100%, calc(40vh * ${ratio.toFixed(4)}))`
-      : "100%";
-
     return (
       <>
         {!imgSize && (
@@ -105,14 +96,14 @@ function MediaBlock({
         )}
         <div
           style={{
-            width: divWidth,
+            width: "100%",
             aspectRatio: imgSize ? `${imgSize.w} / ${imgSize.h}` : "4 / 3",
+            maxHeight: "42vh",
             backgroundImage: `url("${asset.previewUrl}")`,
             backgroundSize: "cover",
             backgroundRepeat: "no-repeat",
             backgroundPosition: "center top",
             borderRadius: "16px 16px 0 0",
-            margin: "0 auto",
           }}
         />
       </>
