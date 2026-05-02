@@ -69,7 +69,7 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
     <div style={{ display: "grid" }} className="group/video">
       <div style={{ gridArea: "1 / 1" }}>{children}</div>
       <div
-        style={{ gridArea: "1 / 1", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}
+        style={{ gridArea: "1 / 1", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none", willChange: "opacity, transform" }}
         className="opacity-0 scale-75 group-hover/video:opacity-100 group-hover/video:scale-100 transition-[opacity,transform] duration-[180ms] ease-out"
       >
         <div
@@ -85,6 +85,8 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            transform: "translateZ(0)",
+            willChange: "transform",
           }}
         >
           <div
