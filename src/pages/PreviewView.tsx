@@ -98,7 +98,7 @@ function MediaBlock({
       <img
         src={asset.previewUrl}
         alt={asset.name}
-        style={{ display: "block", width: "100%", height: "auto", maxHeight: "50vh", ...MEDIA_RADIUS }}
+        style={{ display: "block", width: "auto", maxWidth: "100%", height: "auto", maxHeight: "50vh", margin: "0 auto", ...MEDIA_RADIUS }}
         onError={() => setFailed(true)}
       />
     );
