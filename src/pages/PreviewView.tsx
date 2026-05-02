@@ -653,7 +653,7 @@ export default function PreviewView() {
           </AnimatePresence>
 
           {/* Content */}
-          <div className="relative h-full flex items-center justify-center p-8 overflow-y-auto">
+          <div className="relative h-full flex flex-col items-center py-8 px-4 overflow-y-auto">
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${activePlatform}-${currentIdx}`}
