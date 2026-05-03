@@ -110,7 +110,9 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
 
 // Full-res for images; thumbnail poster for videos (can't play in <img>)
 function displaySrc(asset: UploadedAsset): string {
-  return asset.type === "IMAGE" ? (asset.fileUrl || asset.previewUrl) : asset.previewUrl;
+  const src = asset.type === "IMAGE" ? (asset.fileUrl || asset.previewUrl) : asset.previewUrl;
+  console.log("[preview]", { type: asset.type, fileUrl: asset.fileUrl?.slice(0,60), previewUrl: asset.previewUrl?.slice(0,60), using: src?.slice(0,60) });
+  return src;
 }
 
 function MediaBlock({
