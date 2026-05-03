@@ -108,6 +108,11 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
 
 // ── Shared media block ────────────────────────────────────────────────────────
 
+// Full-res for images; thumbnail poster for videos (can't play in <img>)
+function displaySrc(asset: UploadedAsset): string {
+  return asset.type === "IMAGE" ? (asset.fileUrl || asset.previewUrl) : asset.previewUrl;
+}
+
 function MediaBlock({
   asset,
   platform = "telegram",
@@ -115,20 +120,21 @@ function MediaBlock({
   asset: UploadedAsset;
   platform?: "x" | "telegram";
 }) {
+  const src = displaySrc(asset);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setFailed(false);
-  }, [asset.previewUrl]);
+  }, [src]);
 
   if (platform === "telegram") {
-    if (!asset.previewUrl || failed) {
+    if (!src || failed) {
       return <div style={{ width: "100%", aspectRatio: "4/3", backgroundColor: "#1d2733", clipPath: "inset(0 round 1rem 1rem 0 0)" }} />;
     }
 
     return (
       <img
-        src={asset.previewUrl}
+        src={src}
         alt=""
         style={{ display: "block", width: "100%", height: "auto", ...MEDIA_RADIUS }}
         onError={() => setFailed(true)}
@@ -137,14 +143,13 @@ function MediaBlock({
   }
 
   // X portrait: natural aspect ratio, no letterbox, capped to fit screen
-  // (fixed 9:16 container causes black bars on 3:4 iPhone photos and overflows on tall videos)
   if (asset.ratio === "portrait") {
-    if (!asset.previewUrl || failed) {
+    if (!src || failed) {
       return <div style={{ width: "100%", aspectRatio: "3/4", backgroundColor: "#1d2733", borderRadius: "1rem" }} />;
     }
     return (
       <img
-        src={asset.previewUrl}
+        src={src}
         alt={asset.name}
         style={{ display: "block", width: "auto", maxWidth: "100%", height: "auto", maxHeight: "50vh", ...MEDIA_RADIUS }}
         onError={() => setFailed(true)}
@@ -156,9 +161,9 @@ function MediaBlock({
   const cls = ratioContainerCls(asset.ratio, "x");
   return (
     <div className={cls}>
-      {asset.previewUrl && !failed ? (
+      {src && !failed ? (
         <img
-          src={asset.previewUrl}
+          src={src}
           alt={asset.name}
           className="w-full h-full object-cover block"
           style={MEDIA_RADIUS}
@@ -340,9 +345,10 @@ function RedditPreview() {
 // ── Website preview ────────────────────────────────────────────────────────────
 
 function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: string }) {
+  const src = displaySrc(asset);
   const [failed, setFailed] = useState(false);
 
-  useEffect(() => { setFailed(false); }, [asset.previewUrl]);
+  useEffect(() => { setFailed(false); }, [src]);
 
   const isPortrait = asset.ratio === "portrait";
 
@@ -350,9 +356,9 @@ function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: str
     <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
       {isPortrait ? (
         <div className="flex items-center justify-center bg-black">
-          {asset.previewUrl && !failed ? (
+          {src && !failed ? (
             <img
-              src={asset.previewUrl}
+              src={src}
               alt={asset.name}
               style={{ display: "block", width: "auto", maxWidth: "100%", height: "auto", maxHeight: "65vh" }}
               onError={() => setFailed(true)}
@@ -363,9 +369,9 @@ function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: str
         </div>
       ) : (
         <div className="w-full aspect-video bg-black">
-          {asset.previewUrl && !failed ? (
+          {src && !failed ? (
             <img
-              src={asset.previewUrl}
+              src={src}
               alt={asset.name}
               className="w-full h-full object-cover block"
               onError={() => setFailed(true)}

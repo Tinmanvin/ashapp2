@@ -10,7 +10,8 @@ export interface UploadedAsset {
   type: AssetType;
   ratio: AssetRatio;
   duration?: string;            // "2:34" display format
-  previewUrl: string;           // thumbnail URL for display
+  previewUrl: string;           // thumbnail URL (used in grid + video poster)
+  fileUrl: string;              // full-res original in R2 (used in Preview)
   size: number;
   source: 'local' | 'drive';
   status: Asset['status'];
@@ -104,6 +105,7 @@ function dbAssetToUi(asset: Asset): UploadedAsset {
     ratio: asset.ratio,
     duration: asset.duration_secs ? formatDuration(asset.duration_secs) : undefined,
     previewUrl: asset.thumbnail_url ?? '',
+    fileUrl: asset.file_url ?? '',
     size: asset.size_bytes ?? 0,
     source: asset.source,
     status: asset.status,
@@ -209,6 +211,7 @@ export function useFileUpload() {
         ratio,
         duration: durationSecs ? formatDuration(durationSecs) : undefined,
         previewUrl: thumbnailDataUrl,
+        fileUrl: '',
         size: file.size,
         source: 'local',
         status: 'uploaded',
