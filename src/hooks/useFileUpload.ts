@@ -21,7 +21,7 @@ export interface UploadedAsset {
 
 // ── Thumbnail helpers ─────────────────────────────────────────────────────────
 
-const MAX_THUMB = 900;
+const MAX_THUMB = 600;
 
 async function thumbnailFromImage(file: File): Promise<{
   dataUrl: string;
@@ -40,7 +40,7 @@ async function thumbnailFromImage(file: File): Promise<{
       canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
       resolve({
-        dataUrl: canvas.toDataURL('image/jpeg', 0.82),
+        dataUrl: canvas.toDataURL('image/jpeg', 0.72),
         ratio: w > h * 1.2 ? 'landscape' : h > w * 1.2 ? 'portrait' : 'square',
       });
     };
@@ -75,7 +75,7 @@ async function thumbnailFromVideo(file: File): Promise<{
       canvas.getContext('2d')!.drawImage(video, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
       resolve({
-        dataUrl: canvas.toDataURL('image/jpeg', 0.82),
+        dataUrl: canvas.toDataURL('image/jpeg', 0.72),
         ratio: vw > vh * 1.2 ? 'landscape' : vh > vw * 1.2 ? 'portrait' : 'square',
         durationSecs: Math.floor(video.duration) || 0,
       });
@@ -124,6 +124,24 @@ function makeThumbKey(storageKey: string): string {
   return `thumbs/${storageKey.replace(/^files\//, '')}.jpg`;
 }
 
+// ── Concurrency pool ──────────────────────────────────────────────────────────
+
+async function runConcurrent<T>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<void>
+): Promise<void> {
+  const queue = [...items];
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (queue.length) {
+        const item = queue.shift()!;
+        await fn(item);
+      }
+    })
+  );
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useFileUpload() {
@@ -157,7 +175,7 @@ export function useFileUpload() {
     const r2Ready = isR2Configured();
     setIsProcessing(true);
 
-    for (const file of accepted) {
+    try { await runConcurrent(accepted, 6, async (file) => {
       const isVideo = file.type.startsWith('video/');
 
       // 1. Generate thumbnail + extract metadata locally
@@ -205,25 +223,24 @@ export function useFileUpload() {
         let thumbnailUrl = '';
 
         if (r2Ready) {
-          // 3a. Upload to Cloudflare R2
-          fileUrl = await uploadToR2(
-            file,
-            storageKey,
-            (pct) => {
+          // Prepare thumbnail blob so both uploads can fire in parallel
+          const thumbBlobForR2 = thumbnailDataUrl
+            ? await (await fetch(thumbnailDataUrl)).blob()
+            : null;
+
+          // 3a+3b. Upload file and thumbnail to R2 in parallel
+          [fileUrl, thumbnailUrl] = await Promise.all([
+            uploadToR2(file, storageKey, (pct) => {
               setAssets((prev) =>
                 prev.map((a) =>
                   a.id === tempId ? { ...a, uploadProgress: pct } : a
                 )
               );
-            }
-          );
-
-          // 3b. Upload thumbnail blob to R2 (always small, no progress needed)
-          if (thumbnailDataUrl) {
-            const thumbRes = await fetch(thumbnailDataUrl);
-            const thumbBlob = await thumbRes.blob();
-            thumbnailUrl = await uploadToR2(thumbBlob, thumbKey);
-          }
+            }),
+            thumbBlobForR2
+              ? uploadToR2(thumbBlobForR2, thumbKey)
+              : Promise.resolve(''),
+          ]);
         } else {
           // 3c. Fallback: Supabase Storage (≤50MB, good for images + short clips)
           const { error: uploadError } = await supabase.storage
@@ -233,7 +250,7 @@ export function useFileUpload() {
           if (uploadError) {
             console.error('Storage upload failed:', uploadError.message);
             setAssets((prev) => prev.filter((a) => a.id !== tempId));
-            continue;
+            return;
           }
 
           fileUrl = supabase.storage.from('assets').getPublicUrl(storageKey).data.publicUrl;
@@ -273,7 +290,7 @@ export function useFileUpload() {
         if (dbError) {
           console.error('DB insert failed:', dbError.message);
           setAssets((prev) => prev.filter((a) => a.id !== tempId));
-          continue;
+          return;
         }
 
         // 5. Replace optimistic entry with real DB row
@@ -286,9 +303,7 @@ export function useFileUpload() {
         console.error('Upload error:', err);
         setAssets((prev) => prev.filter((a) => a.id !== tempId));
       }
-    }
-
-    setIsProcessing(false);
+    }); } finally { setIsProcessing(false); }
   }, []);
 
   // ── Update episode tag ─────────────────────────────────────────────────────

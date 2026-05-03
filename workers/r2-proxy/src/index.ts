@@ -74,7 +74,10 @@ export default {
 
       try {
         await env.BUCKET.put(key, file.stream(), {
-          httpMetadata: { contentType: file.type },
+          httpMetadata: {
+            contentType: file.type,
+            cacheControl: 'public, max-age=31536000, immutable',
+          },
         });
 
         const publicUrl = `${env.R2_PUBLIC_URL}/${key}`;

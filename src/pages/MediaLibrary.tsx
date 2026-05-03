@@ -304,6 +304,10 @@ export default function MediaLibrary() {
 
   const hasSelection = selected.length > 0;
 
+  const selectAll = useCallback(() => {
+    setSelected(filteredAssets.map((a) => a.id));
+  }, [filteredAssets]);
+
   const handleDeleteAll = useCallback(() => {
     if (!assets.length) return;
     if (!window.confirm(`Delete all ${assets.length} asset${assets.length === 1 ? "" : "s"} from the library? This also removes them from storage and cannot be undone.`)) return;
@@ -557,6 +561,8 @@ export default function MediaLibrary() {
                               alt={asset.name}
                               className="absolute inset-0 w-full h-full object-cover"
                               draggable={false}
+                              loading="lazy"
+                              decoding="async"
                             />
                           )}
 
@@ -662,6 +668,8 @@ export default function MediaLibrary() {
                             src={asset.previewUrl}
                             alt=""
                             className="absolute inset-0 w-full h-full object-cover"
+                            loading="lazy"
+                            decoding="async"
                           />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
@@ -707,6 +715,12 @@ export default function MediaLibrary() {
                   </p>
                   <div className="mt-3 flex items-center gap-2">
                     <BulkTagPill selectedIds={selected} onUpdate={updateEpisodeTag} />
+                    <button
+                      onClick={selectAll}
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-black/40 border-white/10 text-muted-foreground hover:text-foreground"
+                    >
+                      <span>Select all</span>
+                    </button>
                     <button
                       onClick={handleDeleteSelected}
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-danger/10 border-danger/30 text-danger hover:bg-danger/20"
