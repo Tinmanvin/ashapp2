@@ -1,46 +1,241 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  FileSpreadsheet,
-  Send,
-  Image as ImageIcon,
-  GripVertical,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, GripVertical, X } from "lucide-react";
+import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
+import { PLATFORM_META } from "@/lib/captionPrompts";
 
-const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+// ── Platform display helpers ──────────────────────────────────────────────────
 
-const platformIcons = [
-  { name: "X", color: "bg-platform-x text-black" },
-  { name: "R", color: "bg-platform-reddit text-white" },
-  { name: "T", color: "bg-platform-telegram text-white" },
-  { name: "W", color: "bg-platform-website text-white" },
-];
+const PLATFORM_SHORT: Record<string, { letter: string; bg: string; text: string }> = {
+  x:             { letter: "X", bg: "bg-platform-x",       text: "text-black"   },
+  reddit:        { letter: "R", bg: "bg-platform-reddit",  text: "text-white"   },
+  telegram_free: { letter: "T", bg: "bg-platform-telegram",text: "text-white"   },
+  telegram_vip:  { letter: "V", bg: "bg-blue-600",         text: "text-white"   },
+  website:       { letter: "W", bg: "bg-platform-website", text: "text-white"   },
+};
 
-// Mock: generate calendar days for March 2026
-const calendarDays = Array.from({ length: 28 }, (_, i) => {
-  const day = i + 1;
-  const scheduled = Array.from({ length: 4 }, () => Math.random() > 0.5);
-  const count = scheduled.filter(Boolean).length;
-  return { day, scheduled, isFull: count === 4, isToday: day === 29, isPast: day < 29 };
-});
+function PlatformDots({ platforms }: { platforms: string[] }) {
+  return (
+    <div className="flex gap-1 flex-wrap">
+      {platforms.map((p) => {
+        const meta = PLATFORM_SHORT[p];
+        if (!meta) return null;
+        return (
+          <span
+            key={p}
+            className={`h-4 w-4 rounded-full text-[9px] flex items-center justify-center font-bold ${meta.bg} ${meta.text}`}
+          >
+            {meta.letter}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
 
-const stagingCards = [
-  { id: 1, name: "EP47_Hero_Shot", platforms: ["X", "Reddit"], caption: "New episode dropping tonight..." },
-  { id: 2, name: "EP47_BTS", platforms: ["Telegram", "Website"], caption: "Behind the scenes of the latest..." },
-  { id: 3, name: "EP47_Clip_01", platforms: ["X", "Telegram"], caption: "The highlight reel you didn't..." },
-  { id: 4, name: "Portrait_Closeup", platforms: ["Reddit", "Website"], caption: "Studio session vibes 📸" },
-  { id: 5, name: "EP47_Teaser", platforms: ["X", "Reddit", "Telegram"], caption: "Something big is coming..." },
-];
+// ── Sidebar draggable card ─────────────────────────────────────────────────────
+
+function QueueCard({
+  item,
+  onDragStart,
+}: {
+  item: ScheduledAsset;
+  onDragStart: () => void;
+}) {
+  const readyCount = item.platforms.filter(
+    (p) => (item.captions[p] ?? "").trim().length > 0
+  ).length;
+
+  return (
+    <motion.div
+      draggable
+      onDragStart={onDragStart}
+      whileHover={{ scale: 1.02 }}
+      className="card-surface rounded-xl p-3 mb-2 cursor-grab active:cursor-grabbing select-none"
+    >
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 shrink-0">
+          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+        </div>
+
+        {/* Thumbnail */}
+        <div className="h-12 w-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
+          {item.asset.previewUrl ? (
+            <img
+              src={item.asset.previewUrl}
+              alt={item.asset.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-muted-foreground/30 text-micro">
+              {item.asset.type === "video" ? "▶" : "IMG"}
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <span className="text-body font-satoshi text-foreground block truncate">
+            {item.asset.name}
+          </span>
+          <div className="flex items-center gap-2 mt-1">
+            <PlatformDots platforms={item.platforms} />
+            <span className="text-micro text-muted-foreground font-mono ml-auto shrink-0">
+              {readyCount}/{item.platforms.length}
+            </span>
+          </div>
+          {/* Caption preview from first platform */}
+          {(() => {
+            const firstCaption = item.captions[item.platforms[0]] ?? "";
+            return firstCaption ? (
+              <span className="text-micro text-muted-foreground font-satoshi mt-1 block truncate">
+                {firstCaption}
+              </span>
+            ) : null;
+          })()}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Calendar day cell ──────────────────────────────────────────────────────────
+
+function DayCell({
+  day,
+  dateKey,
+  items,
+  isToday,
+  isPast,
+  isDragOver,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onRemoveItem,
+}: {
+  day: number | null;
+  dateKey: string;
+  items: ScheduledAsset[];
+  isToday: boolean;
+  isPast: boolean;
+  isDragOver: boolean;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onRemoveItem: (assetId: string) => void;
+}) {
+  if (day === null) {
+    return <div className="border-r border-b border-white/[0.04]" />;
+  }
+
+  return (
+    <div
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={`border-r border-b border-white/[0.06] p-1.5 flex flex-col transition-colors overflow-hidden ${
+        isDragOver ? "bg-accent-violet/20 border-accent-violet/40" : ""
+      } ${isPast && !isToday ? "opacity-40" : ""}`}
+    >
+      <span
+        className={`font-mono text-body self-start mb-1 leading-none ${
+          isToday
+            ? "text-accent-violet font-bold"
+            : "text-muted-foreground"
+        }`}
+      >
+        {day}
+      </span>
+
+      <div className="flex flex-col gap-0.5 overflow-hidden">
+        {items.map((item) => (
+          <div
+            key={item.asset.id}
+            className="flex items-center gap-1 bg-white/[0.06] rounded px-1 py-0.5 group cursor-pointer"
+            title={item.asset.name}
+            onClick={() => onRemoveItem(item.asset.id)}
+          >
+            <div className="h-5 w-5 rounded overflow-hidden shrink-0 bg-white/10">
+              {item.asset.previewUrl && (
+                <img
+                  src={item.asset.previewUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+            <div className="flex gap-0.5 flex-wrap min-w-0">
+              {item.platforms.map((p) => {
+                const meta = PLATFORM_SHORT[p];
+                return meta ? (
+                  <span
+                    key={p}
+                    className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${meta.bg}`}
+                  />
+                ) : null;
+              })}
+            </div>
+            <X className="h-2.5 w-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-auto shrink-0" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Scheduler ─────────────────────────────────────────────────────────────
+
+const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function Scheduler() {
-  const [month] = useState("March 2026");
+  const { approvedQueue, scheduled, scheduleItem, unscheduleItem } = useSchedulerStore();
+
+  const today = new Date();
+  const [viewYear, setViewYear]   = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const dragging = useRef<ScheduledAsset | null>(null);
+
+  // Calendar math
+  const daysInMonth  = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstWeekday = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
+  const startOffset  = (firstWeekday + 6) % 7; // convert to Mon-start
+  const monthLabel   = new Date(viewYear, viewMonth, 1).toLocaleString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  // Cells: null = empty lead-in, number = day
+  const cells: (number | null)[] = [
+    ...Array<null>(startOffset).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+  const totalRows = cells.length / 7;
+
+  function toDateKey(day: number) {
+    return `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
+    else setViewMonth((m) => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
+    else setViewMonth((m) => m + 1);
+  }
+
+  // Bottom stats — across all scheduled days, not just current view
+  const allItems    = Object.values(scheduled).flat();
+  const totalPosts  = allItems.reduce((sum, i) => sum + i.platforms.length, 0);
+  const uniquePlats = new Set(allItems.flatMap((i) => i.platforms)).size;
+  const daysCovered = Object.values(scheduled).filter((arr) => arr.length > 0).length;
 
   return (
     <div className="flex h-full">
-      {/* Left Staging Panel */}
+      {/* ── Left Staging Panel ── */}
       <div className="w-[300px] shrink-0 glass-panel border-r-0 flex flex-col">
         <div className="px-5 py-5">
           <h2 className="font-clash text-section font-bold text-foreground">Ready to Schedule</h2>
@@ -53,66 +248,45 @@ export default function Scheduler() {
         </div>
 
         <div className="flex-1 overflow-auto px-3">
-          {stagingCards.map((card) => (
-            <motion.div
-              key={card.id}
-              whileHover={{ scale: 1.02 }}
-              className="card-surface rounded-xl p-3 mb-2 cursor-grab active:cursor-grabbing"
-            >
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  <GripVertical className="h-4 w-4 text-muted-foreground/40" />
-                </div>
-                <div className="h-12 w-12 rounded-lg card-elevated flex items-center justify-center shrink-0">
-                  <ImageIcon className="h-5 w-5 text-muted-foreground/30" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-body font-satoshi text-foreground block truncate">{card.name}</span>
-                  <div className="flex gap-1 mt-1">
-                    {card.platforms.map((p) => {
-                      const pi = platformIcons.find((x) => x.name === p[0]);
-                      return (
-                        <span
-                          key={p}
-                          className={`h-4 w-4 rounded-full text-micro flex items-center justify-center font-bold ${pi?.color || "glass-button text-muted-foreground"}`}
-                        >
-                          {p[0]}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  <span className="text-micro text-muted-foreground font-satoshi mt-1 block truncate">
-                    {card.caption}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+          {approvedQueue.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-center px-4">
+              <p className="text-body text-muted-foreground font-satoshi">No assets queued.</p>
+              <p className="text-micro text-muted-foreground/60 mt-1">Approve content in the Preview tab first.</p>
+            </div>
+          ) : (
+            approvedQueue.map((item) => (
+              <QueueCard
+                key={item.asset.id}
+                item={item}
+                onDragStart={() => { dragging.current = item; }}
+              />
+            ))
+          )}
         </div>
 
         <div className="border-t border-white/[0.08] px-5 py-3">
           <span className="font-mono text-micro text-muted-foreground">
-            5 assets ready
+            {approvedQueue.length} {approvedQueue.length === 1 ? "asset" : "assets"} ready
           </span>
         </div>
       </div>
 
-      {/* Calendar Canvas */}
+      {/* ── Calendar Canvas ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Month header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
-          <button className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button">
+          <button onClick={prevMonth} className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button">
             <ChevronLeft className="h-5 w-5" />
           </button>
-          <span className="font-clash text-section font-bold text-foreground">{month}</span>
-          <button className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button">
+          <span className="font-clash text-section font-bold text-foreground">{monthLabel}</span>
+          <button onClick={nextMonth} className="rounded-md p-1 text-muted-foreground hover:text-foreground glass-button">
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Day headers */}
+        {/* Day-of-week headers */}
         <div className="grid grid-cols-7 border-b border-white/[0.08]">
-          {daysOfWeek.map((d) => (
+          {DAYS_OF_WEEK.map((d) => (
             <div key={d} className="px-2 py-2 text-center font-mono text-micro text-muted-foreground">
               {d}
             </div>
@@ -120,58 +294,61 @@ export default function Scheduler() {
         </div>
 
         {/* Calendar grid */}
-        <div className="flex-1 grid grid-cols-7 grid-rows-4 overflow-hidden">
-          {calendarDays.map((day) => (
-            <motion.div
-              key={day.day}
-              whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
-              className={`border-r border-b border-white/[0.06] p-2 flex flex-col transition-colors ${
-                day.isFull ? "bg-accent-violet/[0.06]" : ""
-              } ${day.isPast ? "opacity-50" : ""}`}
-            >
-              <span
-                className={`font-mono text-body self-start mb-1 ${
-                  day.isToday
-                    ? "text-accent-violet font-bold"
-                    : "text-muted-foreground"
-                }`}
-              >
-                {day.day}
-              </span>
-              <div className="grid grid-cols-2 gap-1 mt-auto">
-                {platformIcons.map((p, pi) => (
-                  <div
-                    key={p.name}
-                    className={`relative h-6 w-6 rounded-md flex items-center justify-center text-micro font-bold transition-all ${
-                      day.scheduled[pi]
-                        ? p.color
-                        : "glass-button text-muted-foreground/30"
-                    }`}
-                  >
-                    {p.name}
-                    {day.scheduled[pi] && (
-                      <span className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full glass-accent text-[9px] text-white flex items-center justify-center font-bold">
-                        {Math.ceil(Math.random() * 5)}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          ))}
+        <div
+          className="flex-1 grid grid-cols-7 overflow-hidden"
+          style={{ gridTemplateRows: `repeat(${totalRows}, minmax(0, 1fr))` }}
+        >
+          {cells.map((day, idx) => {
+            const dk = day !== null ? toDateKey(day) : `empty-${idx}`;
+            const dayItems = day !== null ? (scheduled[toDateKey(day)] ?? []) : [];
+            const isPast = day !== null
+              ? toDateKey(day) < todayKey
+              : false;
+            const isToday = day !== null && toDateKey(day) === todayKey;
+
+            return (
+              <DayCell
+                key={dk}
+                day={day}
+                dateKey={dk}
+                items={dayItems}
+                isToday={isToday}
+                isPast={isPast}
+                isDragOver={dragOverKey === dk && day !== null}
+                onDragOver={(e) => {
+                  if (day === null) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  setDragOverKey(dk);
+                }}
+                onDragLeave={() => setDragOverKey(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverKey(null);
+                  if (!dragging.current || day === null) return;
+                  scheduleItem(toDateKey(day), dragging.current);
+                  dragging.current = null;
+                }}
+                onRemoveItem={(assetId) => unscheduleItem(toDateKey(day!), assetId)}
+              />
+            );
+          })}
         </div>
 
         {/* Bottom bar */}
         <div className="flex items-center justify-between px-6 py-3 border-t border-white/[0.08]">
           <span className="font-mono text-body text-muted-foreground">
-            48 posts · 4 platforms · 14 days covered
+            {totalPosts} {totalPosts === 1 ? "post" : "posts"} · {uniquePlats}{" "}
+            {uniquePlats === 1 ? "platform" : "platforms"} · {daysCovered}{" "}
+            {daysCovered === 1 ? "day" : "days"} covered
           </span>
           <div className="flex items-center gap-3">
-            <button className="rounded-full glass-button px-4 py-2 text-body text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
-              <FileSpreadsheet className="h-3.5 w-3.5" /> Export to Sheets
-            </button>
-            <button className="rounded-full glass-accent px-5 py-2 text-body font-medium text-white transition-all flex items-center gap-2">
-              <Send className="h-3.5 w-3.5" /> Publish on Schedule
+            <button
+              disabled
+              className="rounded-full glass-button px-5 py-2 text-body font-medium text-white/40 flex items-center gap-2 cursor-not-allowed"
+              title="Publishing pipeline coming soon"
+            >
+              Publish on Schedule
             </button>
           </div>
         </div>

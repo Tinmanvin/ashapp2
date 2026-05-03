@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useProcessingStore } from "@/store/processingStore";
+import { useSchedulerStore } from "@/store/schedulerStore";
 import { supabase } from "@/lib/supabase";
 import type { UploadedAsset } from "@/hooks/useFileUpload";
 
@@ -406,7 +407,8 @@ function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: str
 
 export default function PreviewView() {
   const navigate = useNavigate();
-  const { selectedAssets } = useProcessingStore();
+  const { selectedAssets, selectedPlatforms } = useProcessingStore();
+  const { setApprovedQueue } = useSchedulerStore();
 
   const [activePlatform, setActivePlatform] = useState("X");
   const [currentIdx, setCurrentIdx]         = useState(0);
@@ -604,10 +606,21 @@ export default function PreviewView() {
             Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 text-[11px]">A</kbd> to approve &amp; next
           </span>
           <button
-            onClick={() => navigate("/scheduler")}
+            onClick={() => {
+              const approved = selectedAssets.filter((a) => approvedIds.has(a.id));
+              const queue = approved.map((asset) => ({
+                asset,
+                platforms: selectedPlatforms,
+                captions: Object.fromEntries(
+                  selectedPlatforms.map((p) => [p, captions[`${asset.id}:${p}`] ?? ""])
+                ),
+              }));
+              setApprovedQueue(queue);
+              navigate("/scheduler");
+            }}
             className="rounded-full glass-accent px-5 py-2.5 text-body font-medium text-white transition-all flex items-center gap-2"
           >
-            Schedule Approved <ChevronRight className="h-3.5 w-3.5" />
+            Schedule Approved ({approvedIds.size}) <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
