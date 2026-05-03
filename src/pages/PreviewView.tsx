@@ -341,7 +341,7 @@ function RedditPreview() {
 
 function WebsitePreview() {
   return (
-    <div className="card-surface rounded-2xl overflow-hidden max-w-[520px] mx-auto">
+    <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
       <div className="aspect-video card-elevated atmospheric-glow" />
       <div className="p-5">
         <p className="text-sub text-foreground font-satoshi">
