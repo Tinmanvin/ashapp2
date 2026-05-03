@@ -120,13 +120,8 @@ export default function AppLayout() {
         className="flex w-[220px] flex-col border-r border-border bg-sidebar shrink-0"
       >
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-violet">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <span className="font-clash text-sub font-bold tracking-tight text-foreground">
-            BlackMagic
-          </span>
+        <div className="flex items-center justify-center px-5 py-5">
+          <img src="/bm-logo.png" alt="Black Magic Entertainment" className="h-10 w-auto object-contain" />
         </div>
 
         {/* Nav */}
