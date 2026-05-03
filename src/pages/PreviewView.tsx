@@ -337,20 +337,56 @@ function RedditPreview() {
   );
 }
 
-// ── Website preview (unchanged) ───────────────────────────────────────────────
+// ── Website preview ────────────────────────────────────────────────────────────
 
-function WebsitePreview() {
+function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: string }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => { setFailed(false); }, [asset.previewUrl]);
+
+  const isPortrait = asset.ratio === "portrait";
+
   return (
     <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
-      <div className="aspect-video card-elevated atmospheric-glow" />
+      {isPortrait ? (
+        <div className="flex items-center justify-center bg-black">
+          {asset.previewUrl && !failed ? (
+            <img
+              src={asset.previewUrl}
+              alt={asset.name}
+              style={{ display: "block", width: "auto", maxWidth: "100%", height: "auto", maxHeight: "65vh" }}
+              onError={() => setFailed(true)}
+            />
+          ) : (
+            <div style={{ width: "100%", aspectRatio: "9/16", backgroundColor: "#111" }} />
+          )}
+        </div>
+      ) : (
+        <div className="w-full aspect-video bg-black">
+          {asset.previewUrl && !failed ? (
+            <img
+              src={asset.previewUrl}
+              alt={asset.name}
+              className="w-full h-full object-cover block"
+              onError={() => setFailed(true)}
+            />
+          ) : (
+            <div className="w-full h-full" style={{ backgroundColor: "#111" }} />
+          )}
+        </div>
+      )}
       <div className="p-5">
-        <p className="text-sub text-foreground font-satoshi">
-          Episode 47 is now live. This one pushes every boundary we've set. Watch the full episode on the site.
+        <p className="text-sub text-foreground font-satoshi whitespace-pre-wrap break-words">
+          {caption || "No caption generated yet."}
         </p>
         <div className="mt-3 flex items-center gap-2 text-micro text-muted-foreground font-mono">
-          <span>Mar 29, 2026</span>
-          <span>·</span>
-          <span className="rounded-md glass-button px-2 py-0.5">Episode</span>
+          <span>{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</span>
+          {asset.episode_tag && (
+            <>
+              <span>·</span>
+              <span className="rounded-md glass-button px-2 py-0.5">{asset.episode_tag}</span>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -446,7 +482,7 @@ export default function PreviewView() {
     if (activePlatform === "X")        return <XPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Reddit")   return <RedditPreview />;
-    return <WebsitePreview />;
+    return <WebsitePreview asset={currentAsset} caption={currentCaption} />;
   }
 
   return (
