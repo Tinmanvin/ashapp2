@@ -109,10 +109,11 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
 // ── Shared media block ────────────────────────────────────────────────────────
 
 // Full-res for images; thumbnail poster for videos (can't play in <img>)
-function displaySrc(asset: UploadedAsset): string {
-  const src = asset.type === "IMAGE" ? (asset.fileUrl || asset.previewUrl) : asset.previewUrl;
-  console.log("[preview]", { type: asset.type, fileUrl: asset.fileUrl?.slice(0,60), previewUrl: asset.previewUrl?.slice(0,60), using: src?.slice(0,60) });
-  return src;
+function fullResSrc(asset: UploadedAsset): string {
+  if (asset.type !== "IMAGE") return asset.previewUrl;
+  // Derive full-res URL from thumbnail: /thumbs/foo.ext.jpg → /files/foo.ext
+  const full = asset.previewUrl.replace("/thumbs/", "/files/").replace(/\.jpg$/, "");
+  return full || asset.previewUrl;
 }
 
 function MediaBlock({
@@ -122,7 +123,7 @@ function MediaBlock({
   asset: UploadedAsset;
   platform?: "x" | "telegram";
 }) {
-  const src = displaySrc(asset);
+  const src = fullResSrc(asset);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -347,7 +348,7 @@ function RedditPreview() {
 // ── Website preview ────────────────────────────────────────────────────────────
 
 function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: string }) {
-  const src = displaySrc(asset);
+  const src = fullResSrc(asset);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => { setFailed(false); }, [src]);
