@@ -120,8 +120,8 @@ export default function AppLayout() {
         className="flex w-[220px] flex-col border-r border-border bg-sidebar shrink-0"
       >
         {/* Logo */}
-        <div className="flex items-center justify-center px-5 py-5">
-          <img src="/bm-logo.png" alt="Black Magic Entertainment" style={{ width: "80%", height: "auto" }} className="object-contain" />
+        <div className="flex items-center justify-center px-4 py-3">
+          <img src="/bm-logo.png" alt="Black Magic Entertainment" style={{ width: "80%", maxHeight: "36px", height: "auto" }} className="object-contain" />
         </div>
 
         {/* Nav */}
