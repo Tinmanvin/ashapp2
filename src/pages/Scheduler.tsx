@@ -132,12 +132,12 @@ function DayCell({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`border-r border-b border-white/[0.06] p-1.5 flex flex-col transition-colors overflow-hidden ${
+      className={`border-r border-b border-white/[0.06] p-1.5 flex flex-col transition-colors ${
         isDragOver ? "bg-accent-violet/20 border-accent-violet/40" : ""
       } ${isPast && !isToday ? "opacity-40" : ""}`}
     >
       <span
-        className={`font-mono text-body self-start mb-1 leading-none ${
+        className={`font-mono text-body self-start mb-1 leading-none shrink-0 ${
           isToday
             ? "text-accent-violet font-bold"
             : "text-muted-foreground"
@@ -146,7 +146,7 @@ function DayCell({
         {day}
       </span>
 
-      <div className="flex flex-col gap-0.5 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 overscroll-contain">
         {items.map((item) => (
           <div
             key={item.asset.id}
