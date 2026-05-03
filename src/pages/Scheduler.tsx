@@ -169,8 +169,10 @@ function DayCell({
                 return meta ? (
                   <span
                     key={p}
-                    className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${meta.bg}`}
-                  />
+                    className={`h-3.5 w-3.5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-bold ${meta.bg} ${meta.text}`}
+                  >
+                    {meta.letter}
+                  </span>
                 ) : null;
               })}
             </div>
