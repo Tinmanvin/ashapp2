@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Sparkles, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, GripVertical, X } from "lucide-react";
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
+import { PLATFORM_META } from "@/lib/captionPrompts";
 
 // ── Platform display helpers ──────────────────────────────────────────────────
 
@@ -97,101 +98,11 @@ function QueueCard({
   );
 }
 
-// ── Calendar platform pills ───────────────────────────────────────────────────
-
-const PILL_PLATFORMS = [
-  {
-    keys: ["x"],
-    letter: "X",
-    pillActive:   "bg-platform-x/10 border border-platform-x/30",
-    pillInactive: "bg-white/[0.03] border border-white/[0.05]",
-    letterActive:   "text-platform-x",
-    letterInactive: "text-white/20",
-    circleActive:   "bg-platform-x",
-    circleInactive: "bg-white/[0.08]",
-    countActive:   "text-black",
-    countInactive: "text-white/20",
-  },
-  {
-    keys: ["reddit"],
-    letter: "R",
-    pillActive:   "bg-platform-reddit/10 border border-platform-reddit/30",
-    pillInactive: "bg-white/[0.03] border border-white/[0.05]",
-    letterActive:   "text-platform-reddit",
-    letterInactive: "text-white/20",
-    circleActive:   "bg-platform-reddit",
-    circleInactive: "bg-white/[0.08]",
-    countActive:   "text-white",
-    countInactive: "text-white/20",
-  },
-  {
-    keys: ["telegram_free", "telegram_vip"],
-    letter: "T",
-    pillActive:   "bg-platform-telegram/10 border border-platform-telegram/30",
-    pillInactive: "bg-white/[0.03] border border-white/[0.05]",
-    letterActive:   "text-platform-telegram",
-    letterInactive: "text-white/20",
-    circleActive:   "bg-platform-telegram",
-    circleInactive: "bg-white/[0.08]",
-    countActive:   "text-white",
-    countInactive: "text-white/20",
-  },
-  {
-    keys: ["website"],
-    letter: "W",
-    pillActive:   "bg-platform-website/10 border border-platform-website/30",
-    pillInactive: "bg-white/[0.03] border border-white/[0.05]",
-    letterActive:   "text-platform-website",
-    letterInactive: "text-white/20",
-    circleActive:   "bg-platform-website",
-    circleInactive: "bg-white/[0.08]",
-    countActive:   "text-white",
-    countInactive: "text-white/20",
-  },
-] as const;
-
-function PlatformPill({
-  pill,
-  count,
-}: {
-  pill: (typeof PILL_PLATFORMS)[number];
-  count: number;
-}) {
-  const active = count > 0;
-  return (
-    <div
-      className={`flex items-center rounded-full w-full px-1.5 py-[3px] transition-all ${
-        active ? pill.pillActive : pill.pillInactive
-      }`}
-    >
-      <span
-        className={`text-[9px] font-bold leading-none font-mono ${
-          active ? pill.letterActive : pill.letterInactive
-        }`}
-      >
-        {pill.letter}
-      </span>
-      <div
-        className={`ml-auto h-3.5 w-3.5 rounded-full flex items-center justify-center flex-shrink-0 ${
-          active ? pill.circleActive : pill.circleInactive
-        }`}
-      >
-        <span
-          className={`text-[8px] font-bold leading-none ${
-            active ? pill.countActive : pill.countInactive
-          }`}
-        >
-          {count}
-        </span>
-      </div>
-    </div>
-  );
-}
-
 // ── Calendar day cell ──────────────────────────────────────────────────────────
 
 function DayCell({
   day,
+  dateKey,
   items,
   isToday,
   isPast,
@@ -199,8 +110,10 @@ function DayCell({
   onDragOver,
   onDragLeave,
   onDrop,
+  onRemoveItem,
 }: {
   day: number | null;
+  dateKey: string;
   items: ScheduledAsset[];
   isToday: boolean;
   isPast: boolean;
@@ -208,6 +121,7 @@ function DayCell({
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
+  onRemoveItem: (assetId: string) => void;
 }) {
   if (day === null) {
     return <div className="border-r border-b border-white/[0.04]" />;
@@ -218,24 +132,54 @@ function DayCell({
       onDragOver={onDragOver}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
-      className={`border-r border-b border-white/[0.06] p-1.5 flex flex-col gap-1 transition-colors ${
-        isDragOver ? "bg-accent-violet/10 border-accent-violet/30" : ""
+      className={`border-r border-b border-white/[0.06] p-1.5 flex flex-col transition-colors overflow-hidden ${
+        isDragOver ? "bg-accent-violet/20 border-accent-violet/40" : ""
       } ${isPast && !isToday ? "opacity-40" : ""}`}
     >
       <span
-        className={`font-mono text-body self-start leading-none mb-0.5 ${
-          isToday ? "text-accent-violet font-bold" : "text-muted-foreground"
+        className={`font-mono text-body self-start mb-1 leading-none ${
+          isToday
+            ? "text-accent-violet font-bold"
+            : "text-muted-foreground"
         }`}
       >
         {day}
       </span>
 
-      {PILL_PLATFORMS.map((pill) => {
-        const count = items.filter((item) =>
-          item.platforms.some((p) => (pill.keys as readonly string[]).includes(p))
-        ).length;
-        return <PlatformPill key={pill.letter} pill={pill} count={count} />;
-      })}
+      <div className="flex flex-col gap-0.5 overflow-hidden">
+        {items.map((item) => (
+          <div
+            key={item.asset.id}
+            className="flex items-center gap-1 bg-white/[0.06] rounded px-1 py-0.5 group cursor-pointer"
+            title={item.asset.name}
+            onClick={() => onRemoveItem(item.asset.id)}
+          >
+            <div className="h-5 w-5 rounded overflow-hidden shrink-0 bg-white/10">
+              {item.asset.previewUrl && (
+                <img
+                  src={item.asset.previewUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+            <div className="flex gap-0.5 flex-wrap min-w-0">
+              {item.platforms.map((p) => {
+                const meta = PLATFORM_SHORT[p];
+                return meta ? (
+                  <span
+                    key={p}
+                    className={`h-3.5 w-3.5 rounded-full flex-shrink-0 flex items-center justify-center text-[8px] font-bold ${meta.bg} ${meta.text}`}
+                  >
+                    {meta.letter}
+                  </span>
+                ) : null;
+              })}
+            </div>
+            <X className="h-2.5 w-2.5 text-muted-foreground/0 group-hover:text-muted-foreground/60 transition-colors ml-auto shrink-0" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -245,7 +189,7 @@ function DayCell({
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export default function Scheduler() {
-  const { approvedQueue, scheduled, scheduleItem } = useSchedulerStore();
+  const { approvedQueue, scheduled, scheduleItem, unscheduleItem } = useSchedulerStore();
 
   const today = new Date();
   const [viewYear, setViewYear]   = useState(today.getFullYear());
@@ -368,6 +312,7 @@ export default function Scheduler() {
               <DayCell
                 key={dk}
                 day={day}
+                dateKey={dk}
                 items={dayItems}
                 isToday={isToday}
                 isPast={isPast}
@@ -386,6 +331,7 @@ export default function Scheduler() {
                   scheduleItem(toDateKey(day), dragging.current);
                   dragging.current = null;
                 }}
+                onRemoveItem={(assetId) => unscheduleItem(toDateKey(day!), assetId)}
               />
             );
           })}
