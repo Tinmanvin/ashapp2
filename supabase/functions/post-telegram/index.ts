@@ -39,22 +39,30 @@ serve(async (req) => {
       });
     }
 
+    // Fetch the file into memory — bypasses Cloudflare blocking Telegram's IPs
+    const fileRes = await fetch(fileUrl);
+    if (!fileRes.ok) {
+      return new Response(JSON.stringify({ error: `Failed to fetch file: ${fileRes.status} ${fileRes.statusText}` }), {
+        status: 400, headers: { ...CORS, "Content-Type": "application/json" },
+      });
+    }
+
+    const fileBlob = await fileRes.blob();
+    const contentType = fileBlob.type || (fileType === "video" ? "video/mp4" : "image/jpeg");
+    const filename = fileUrl.split("/").pop() ?? (fileType === "video" ? "video.mp4" : "photo.jpg");
+
     const method   = fileType === "video" ? "sendVideo" : "sendPhoto";
     const mediaKey = fileType === "video" ? "video" : "photo";
 
-    const tgBody: Record<string, unknown> = {
-      chat_id: chatId,
-      [mediaKey]: fileUrl,
-      caption: caption ?? "",
-    };
+    // Upload as multipart/form-data so Telegram receives the file directly
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    form.append(mediaKey, new File([fileBlob], filename, { type: contentType }));
+    if (caption) form.append("caption", caption);
 
     const tgRes = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(tgBody),
-      }
+      { method: "POST", body: form }
     );
 
     const tgData = await tgRes.json();
