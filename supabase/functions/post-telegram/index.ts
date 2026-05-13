@@ -68,9 +68,10 @@ serve(async (req) => {
     const tgData = await tgRes.json();
 
     if (!tgData.ok) {
-      console.error("[post-telegram] Telegram error:", tgData);
-      return new Response(JSON.stringify({ error: tgData.description, tgData }), {
-        status: 400, headers: { ...CORS, "Content-Type": "application/json" },
+      console.error("[post-telegram] Telegram error:", JSON.stringify(tgData));
+      // Return 200 so the Supabase SDK doesn't swallow the body — success:false signals the error
+      return new Response(JSON.stringify({ success: false, error: tgData.description, tgCode: tgData.error_code, tgData }), {
+        status: 200, headers: { ...CORS, "Content-Type": "application/json" },
       });
     }
 

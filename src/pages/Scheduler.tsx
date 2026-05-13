@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles, GripVertical, X, CheckCircle2, Circle } from "lucide-react";
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
 import { PLATFORM_META } from "@/lib/captionPrompts";
-import { supabase } from "@/lib/supabase";
+import { postScheduledItems, type PostStage } from "@/lib/telegramPoster";
 
 // ── Platform display helpers ──────────────────────────────────────────────────
 
@@ -216,10 +216,19 @@ export default function Scheduler() {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragging = useRef<ScheduledAsset | null>(null);
 
-  // Post Now testing
+  // Shared posting state (used by both Test Post and Publish on Schedule)
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [posting, setPosting] = useState(false);
+  const [postStage, setPostStage] = useState<PostStage>(null);
+  const [compressionPct, setCompressionPct] = useState(0);
+
+  const postCallbacks = {
+    onStageChange: (stage: PostStage) => {
+      setPostStage(stage);
+      if (stage !== 'compressing') setCompressionPct(0);
+    },
+    onCompressionProgress: setCompressionPct,
+  };
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -240,32 +249,10 @@ export default function Scheduler() {
   }
 
   async function handlePostNow() {
-    if (selectedIds.size === 0 || posting) return;
+    if (selectedIds.size === 0 || postStage !== null) return;
     const toPost = approvedQueue.filter((item) => selectedIds.has(item.asset.id));
-    setPosting(true);
-
-    const results: { asset: string; platform: string; ok: boolean; error?: string }[] = [];
-
     try {
-      for (const item of toPost) {
-        for (const platform of item.platforms) {
-          if (!platform.startsWith("telegram")) continue;
-          const caption = item.captions[platform] ?? "";
-          const fileType = item.asset.type === "video" ? "video" : "image";
-
-          const { data, error } = await supabase.functions.invoke("post-telegram", {
-            body: { platform, fileUrl: item.asset.fileUrl, fileType, caption },
-          });
-
-          results.push({
-            asset: item.asset.name,
-            platform,
-            ok: !error && data?.success,
-            error: error?.message ?? data?.error,
-          });
-        }
-      }
-
+      const results = await postScheduledItems(toPost, postCallbacks);
       const failed = results.filter((r) => !r.ok);
       if (failed.length === 0) {
         alert(`✅ Posted ${results.length} item(s) successfully.`);
@@ -273,9 +260,27 @@ export default function Scheduler() {
         const msgs = failed.map((r) => `${r.asset} → ${r.platform}: ${r.error}`).join("\n");
         alert(`⚠️ ${results.length - failed.length} ok, ${failed.length} failed:\n${msgs}`);
       }
+    } catch (err) {
+      alert(`❌ Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
-      setPosting(false);
       cancelSelectionMode();
+    }
+  }
+
+  async function handlePublishOnSchedule() {
+    const allScheduled = Object.values(scheduled).flat();
+    if (allScheduled.length === 0 || postStage !== null) return;
+    try {
+      const results = await postScheduledItems(allScheduled, postCallbacks);
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length === 0) {
+        alert(`✅ Published ${results.length} post(s) successfully.`);
+      } else {
+        const msgs = failed.map((r) => `${r.asset} → ${r.platform}: ${r.error}`).join("\n");
+        alert(`⚠️ ${results.length - failed.length} ok, ${failed.length} failed:\n${msgs}`);
+      }
+    } catch (err) {
+      alert(`❌ Error: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
@@ -351,7 +356,29 @@ export default function Scheduler() {
           )}
         </div>
 
-        <div className="border-t border-white/[0.08] px-4 py-3 flex items-center justify-between gap-2">
+        <div className="border-t border-white/[0.08] px-4 py-3 flex flex-col gap-2">
+          {postStage && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-micro text-accent-violet">
+                  {postStage === 'compressing'
+                    ? `Compressing… ${compressionPct}%`
+                    : postStage === 'uploading'
+                    ? 'Uploading compressed…'
+                    : 'Posting…'}
+                </span>
+              </div>
+              {postStage === 'compressing' && (
+                <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-accent-violet transition-all duration-300"
+                    style={{ width: `${compressionPct}%` }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
           <span className="font-mono text-micro text-muted-foreground shrink-0">
             {selectionMode
               ? `${selectedIds.size} selected`
@@ -361,16 +388,17 @@ export default function Scheduler() {
             <div className="flex items-center gap-2">
               <button
                 onClick={cancelSelectionMode}
-                className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium"
+                disabled={postStage !== null}
+                className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium disabled:opacity-40"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePostNow}
-                disabled={selectedIds.size === 0 || posting}
+                disabled={selectedIds.size === 0 || postStage !== null}
                 className="rounded-full px-3 py-1.5 text-micro font-medium bg-accent-violet text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
               >
-                {posting ? "Posting…" : "Post Now"}
+                {postStage !== null ? '…' : 'Post Now'}
               </button>
             </div>
           ) : (
@@ -382,6 +410,7 @@ export default function Scheduler() {
               Test Post
             </button>
           )}
+          </div>
         </div>
       </div>
 
@@ -458,11 +487,17 @@ export default function Scheduler() {
           </span>
           <div className="flex items-center gap-3">
             <button
-              disabled
-              className="rounded-full glass-button px-5 py-2 text-body font-medium text-white/40 flex items-center gap-2 cursor-not-allowed"
-              title="Publishing pipeline coming soon"
+              onClick={handlePublishOnSchedule}
+              disabled={totalPosts === 0 || postStage !== null}
+              className="rounded-full glass-button px-5 py-2 text-body font-medium text-white disabled:text-white/40 disabled:cursor-not-allowed flex items-center gap-2 transition-opacity"
             >
-              Publish on Schedule
+              {postStage === 'compressing'
+                ? `Compressing… ${compressionPct}%`
+                : postStage === 'uploading'
+                ? 'Uploading…'
+                : postStage === 'posting'
+                ? 'Publishing…'
+                : 'Publish on Schedule'}
             </button>
           </div>
         </div>

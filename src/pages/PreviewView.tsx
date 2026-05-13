@@ -433,7 +433,7 @@ export default function PreviewView() {
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Hotkeys: 'A' → approve + next | ArrowLeft/Right → navigate
+  // Hotkeys: 'A' → approve + next | ←/→ → asset nav | ↑/↓ → platform tab
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -441,6 +441,18 @@ export default function PreviewView() {
         setCurrentIdx((i) => Math.max(0, i - 1));
       } else if (e.key === "ArrowRight") {
         setCurrentIdx((i) => Math.min(totalAssets - 1, i + 1));
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActivePlatform((cur) => {
+          const idx = platformTabs.findIndex((p) => p.name === cur);
+          return platformTabs[Math.min(platformTabs.length - 1, idx + 1)].name;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActivePlatform((cur) => {
+          const idx = platformTabs.findIndex((p) => p.name === cur);
+          return platformTabs[Math.max(0, idx - 1)].name;
+        });
       } else if (e.key === "a" || e.key === "A") {
         if (!currentAsset) return;
         setApprovedIds((prev) => {
@@ -604,7 +616,7 @@ export default function PreviewView() {
         {/* Footer */}
         <div className="border-t border-white/[0.08] px-6 py-4 flex items-center justify-between">
           <span className="text-micro text-muted-foreground font-mono">
-            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 text-[11px]">A</kbd> to approve &amp; next
+            Press <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 text-[11px]">A</kbd> to approve &amp; next · <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/60 text-[11px]">↑↓</kbd> to switch platform
           </span>
           <button
             onClick={() => {
