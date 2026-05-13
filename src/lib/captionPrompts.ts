@@ -115,7 +115,6 @@ export const PLATFORM_META: Record<Platform, { label: string; dotColor: string; 
 
 export const DISPLAY_NAME_TO_PLATFORM: Record<string, Platform> = {
   'X': 'x',
-  'Reddit': 'reddit',
   'Telegram Free': 'telegram_free',
   'Telegram Free VIP': 'telegram_free_vip',
   'Telegram VIP': 'telegram_vip',

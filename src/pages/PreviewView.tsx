@@ -24,14 +24,12 @@ import type { UploadedAsset } from "@/hooks/useFileUpload";
 
 const platformTabs = [
   { name: "X",        color: "border-platform-x",        bg: "bg-platform-x/10"        },
-  { name: "Reddit",   color: "border-platform-reddit",   bg: "bg-platform-reddit/10"   },
   { name: "Telegram", color: "border-platform-telegram", bg: "bg-platform-telegram/10" },
   { name: "Website",  color: "border-platform-website",  bg: "bg-platform-website/10"  },
 ];
 
 const TAB_TO_PLATFORM_ID: Record<string, string> = {
   X:        "x",
-  Reddit:   "reddit",
   Telegram: "telegram_free",
   Website:  "website",
 };
@@ -492,7 +490,6 @@ export default function PreviewView() {
     }
     if (activePlatform === "X")        return <XPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={currentCaption} />;
-    if (activePlatform === "Reddit")   return <RedditPreview />;
     return <WebsitePreview asset={currentAsset} caption={currentCaption} />;
   }
 
