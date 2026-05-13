@@ -1,4 +1,4 @@
-export type Platform = 'x' | 'telegram_free' | 'telegram_free_vip' | 'telegram_vip' | 'website' | 'reddit'
+export type Platform = 'x' | 'telegram_free' | 'telegram_free_vip' | 'telegram_vip' | 'website'
 
 const ASH_VOICE_EXAMPLES = `
 EXAMPLES OF ASH'S REAL CAPTIONS (study and match this exact voice, emoji style, and structure):
@@ -93,15 +93,6 @@ Return ONLY the caption text, nothing else.
 
 ${ASH_VOICE_EXAMPLES}`,
   },
-  reddit: {
-    charLimit: 300,
-    systemPrompt: `You write captions for Black Magic (Ash) on Reddit.
-You must write in Ash's exact voice — study the examples below carefully and match his style precisely.
-Rules: max 300 characters, explicit content allowed, conversational, end with engagement hook.
-Return ONLY the caption text, nothing else.
-
-${ASH_VOICE_EXAMPLES}`,
-  },
 }
 
 export const PLATFORM_META: Record<Platform, { label: string; dotColor: string; textColor: string; charLimit: number }> = {
@@ -110,7 +101,6 @@ export const PLATFORM_META: Record<Platform, { label: string; dotColor: string; 
   telegram_free_vip: { label: 'Telegram Free VIP', dotColor: 'bg-cyan-500',  textColor: 'text-cyan-500',  charLimit: 1000 },
   telegram_vip:      { label: 'Telegram VIP',      dotColor: 'bg-blue-600',  textColor: 'text-blue-600',  charLimit: 1000 },
   website:       { label: 'Website',       dotColor: 'bg-platform-website',  textColor: 'text-platform-website',  charLimit: 500 },
-  reddit:        { label: 'Reddit',        dotColor: 'bg-platform-reddit',   textColor: 'text-platform-reddit',   charLimit: 300 },
 }
 
 export const DISPLAY_NAME_TO_PLATFORM: Record<string, Platform> = {
