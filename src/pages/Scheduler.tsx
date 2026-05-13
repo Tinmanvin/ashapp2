@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, Sparkles, GripVertical, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, GripVertical, X, CheckCircle2, Circle } from "lucide-react";
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
 import { PLATFORM_META } from "@/lib/captionPrompts";
 
@@ -38,9 +38,15 @@ function PlatformDots({ platforms }: { platforms: string[] }) {
 function QueueCard({
   item,
   onDragStart,
+  selectionMode,
+  selected,
+  onToggle,
 }: {
   item: ScheduledAsset;
   onDragStart: () => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggle?: () => void;
 }) {
   const readyCount = item.platforms.filter(
     (p) => (item.captions[p] ?? "").trim().length > 0
@@ -48,14 +54,25 @@ function QueueCard({
 
   return (
     <motion.div
-      draggable
-      onDragStart={onDragStart}
+      draggable={!selectionMode}
+      onDragStart={selectionMode ? undefined : onDragStart}
+      onClick={selectionMode ? onToggle : undefined}
       whileHover={{ scale: 1.02 }}
-      className="card-surface rounded-xl p-3 mb-2 cursor-grab active:cursor-grabbing select-none"
+      className={`card-surface rounded-xl p-3 mb-2 select-none transition-colors ${
+        selectionMode
+          ? "cursor-pointer " + (selected ? "ring-1 ring-accent-violet bg-accent-violet/10" : "")
+          : "cursor-grab active:cursor-grabbing"
+      }`}
     >
       <div className="flex items-start gap-3">
         <div className="mt-0.5 shrink-0">
-          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+          {selectionMode ? (
+            selected
+              ? <CheckCircle2 className="h-4 w-4 text-accent-violet" />
+              : <Circle className="h-4 w-4 text-muted-foreground/40" />
+          ) : (
+            <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+          )}
         </div>
 
         {/* Thumbnail */}
@@ -197,6 +214,43 @@ export default function Scheduler() {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const dragging = useRef<ScheduledAsset | null>(null);
 
+  // Post Now testing
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [posting, setPosting] = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function enterSelectionMode() {
+    setSelectionMode(true);
+    setSelectedIds(new Set());
+  }
+
+  function cancelSelectionMode() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function handlePostNow() {
+    if (selectedIds.size === 0 || posting) return;
+    const toPost = approvedQueue.filter((item) => selectedIds.has(item.asset.id));
+    setPosting(true);
+    try {
+      // TODO: wire to Supabase edge functions per platform
+      console.log("[PostNow] assets to post:", toPost);
+      alert(`[Stub] Would post ${toPost.length} asset(s) now. Edge functions wired next.`);
+    } finally {
+      setPosting(false);
+      cancelSelectionMode();
+    }
+  }
+
   // Calendar math
   const daysInMonth  = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstWeekday = new Date(viewYear, viewMonth, 1).getDay(); // 0=Sun
@@ -261,15 +315,45 @@ export default function Scheduler() {
                 key={item.asset.id}
                 item={item}
                 onDragStart={() => { dragging.current = item; }}
+                selectionMode={selectionMode}
+                selected={selectedIds.has(item.asset.id)}
+                onToggle={() => toggleSelect(item.asset.id)}
               />
             ))
           )}
         </div>
 
-        <div className="border-t border-white/[0.08] px-5 py-3">
-          <span className="font-mono text-micro text-muted-foreground">
-            {approvedQueue.length} {approvedQueue.length === 1 ? "asset" : "assets"} ready
+        <div className="border-t border-white/[0.08] px-4 py-3 flex items-center justify-between gap-2">
+          <span className="font-mono text-micro text-muted-foreground shrink-0">
+            {selectionMode
+              ? `${selectedIds.size} selected`
+              : `${approvedQueue.length} ${approvedQueue.length === 1 ? "asset" : "assets"} ready`}
           </span>
+          {selectionMode ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={cancelSelectionMode}
+                className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePostNow}
+                disabled={selectedIds.size === 0 || posting}
+                className="rounded-full px-3 py-1.5 text-micro font-medium bg-accent-violet text-white disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+              >
+                {posting ? "Posting…" : "Post Now"}
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={enterSelectionMode}
+              disabled={approvedQueue.length === 0}
+              className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Test Post
+            </button>
+          )}
         </div>
       </div>
 
