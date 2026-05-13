@@ -457,12 +457,16 @@ export default function PreviewView() {
 
   function toggleApprove() {
     if (!currentAsset) return;
+    const alreadyApproved = approvedIds.has(currentAsset.id);
     setApprovedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(currentAsset.id)) next.delete(currentAsset.id);
+      if (alreadyApproved) next.delete(currentAsset.id);
       else next.add(currentAsset.id);
       return next;
     });
+    if (!alreadyApproved) {
+      setCurrentIdx((i) => Math.min(totalAssets - 1, i + 1));
+    }
   }
 
   const platformId     = TAB_TO_PLATFORM_ID[activePlatform] ?? "x";
