@@ -42,7 +42,8 @@ const FOLDER_TO_TAG: Record<string, string> = {
 const platforms = [
   { name: "X", color: "bg-platform-x text-black" },
   { name: "Telegram Free", color: "bg-platform-telegram text-white" },
-  { name: "Telegram VIP", color: "bg-platform-telegram text-white" },
+  { name: "Telegram Free VIP", color: "bg-cyan-500 text-white" },
+  { name: "Telegram VIP", color: "bg-blue-600 text-white" },
   { name: "Website", color: "bg-platform-website text-white" },
 ];
 
