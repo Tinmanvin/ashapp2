@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { toast } from 'sonner';
 import { supabase, type Asset, type AssetType, type AssetRatio } from '@/lib/supabase';
 import { uploadToR2, deleteFromR2, isR2Configured } from '@/lib/r2';
 
@@ -252,6 +253,7 @@ export function useFileUpload() {
 
           if (uploadError) {
             console.error('Storage upload failed:', uploadError.message);
+            toast.error(`Upload failed: ${uploadError.message}`);
             setAssets((prev) => prev.filter((a) => a.id !== tempId));
             return;
           }
@@ -292,6 +294,7 @@ export function useFileUpload() {
 
         if (dbError) {
           console.error('DB insert failed:', dbError.message);
+          toast.error(`Upload failed: ${dbError.message}`);
           setAssets((prev) => prev.filter((a) => a.id !== tempId));
           return;
         }
@@ -304,6 +307,7 @@ export function useFileUpload() {
         );
       } catch (err) {
         console.error('Upload error:', err);
+        toast.error(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
         setAssets((prev) => prev.filter((a) => a.id !== tempId));
       }
     }); } finally { setIsProcessing(false); }
