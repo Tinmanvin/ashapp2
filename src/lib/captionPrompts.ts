@@ -1,4 +1,4 @@
-export type Platform = 'x' | 'telegram_free' | 'telegram_vip' | 'website' | 'reddit'
+export type Platform = 'x' | 'telegram_free' | 'telegram_free_vip' | 'telegram_vip' | 'website' | 'reddit'
 
 const ASH_VOICE_EXAMPLES = `
 EXAMPLES OF ASH'S REAL CAPTIONS (study and match this exact voice, emoji style, and structure):
@@ -66,6 +66,15 @@ Return ONLY the caption text, nothing else.
 
 ${ASH_VOICE_EXAMPLES}`,
   },
+  telegram_free_vip: {
+    charLimit: 1000,
+    systemPrompt: `You write captions for Black Magic (Ash) on his Free VIP Telegram group (free subscribers who opted in to VIP topics).
+You must write in Ash's exact voice — study the examples below carefully and match his style precisely.
+Rules: max 1000 characters, keep it spicy but not fully explicit — tease and entice, reward them for being in the group without going full VIP.
+Return ONLY the caption text, nothing else.
+
+${ASH_VOICE_EXAMPLES}`,
+  },
   telegram_vip: {
     charLimit: 1000,
     systemPrompt: `You write captions for Black Magic (Ash) on his VIP Telegram channel (paying subscribers).
@@ -97,8 +106,9 @@ ${ASH_VOICE_EXAMPLES}`,
 
 export const PLATFORM_META: Record<Platform, { label: string; dotColor: string; textColor: string; charLimit: number }> = {
   x:             { label: 'X / Twitter',   dotColor: 'bg-platform-x',       textColor: 'text-platform-x',       charLimit: 280 },
-  telegram_free: { label: 'Telegram Free', dotColor: 'bg-sky-400',   textColor: 'text-sky-400',   charLimit: 1000 },
-  telegram_vip:  { label: 'Telegram VIP',  dotColor: 'bg-blue-600',  textColor: 'text-blue-600',  charLimit: 1000 },
+  telegram_free:     { label: 'Telegram Free',     dotColor: 'bg-sky-400',   textColor: 'text-sky-400',   charLimit: 1000 },
+  telegram_free_vip: { label: 'Telegram Free VIP', dotColor: 'bg-cyan-500',  textColor: 'text-cyan-500',  charLimit: 1000 },
+  telegram_vip:      { label: 'Telegram VIP',      dotColor: 'bg-blue-600',  textColor: 'text-blue-600',  charLimit: 1000 },
   website:       { label: 'Website',       dotColor: 'bg-platform-website',  textColor: 'text-platform-website',  charLimit: 500 },
   reddit:        { label: 'Reddit',        dotColor: 'bg-platform-reddit',   textColor: 'text-platform-reddit',   charLimit: 300 },
 }
@@ -107,6 +117,7 @@ export const DISPLAY_NAME_TO_PLATFORM: Record<string, Platform> = {
   'X': 'x',
   'Reddit': 'reddit',
   'Telegram Free': 'telegram_free',
+  'Telegram Free VIP': 'telegram_free_vip',
   'Telegram VIP': 'telegram_vip',
   'Website': 'website',
 }

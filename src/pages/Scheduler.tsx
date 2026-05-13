@@ -3,14 +3,16 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles, GripVertical, X, CheckCircle2, Circle } from "lucide-react";
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
 import { PLATFORM_META } from "@/lib/captionPrompts";
+import { supabase } from "@/lib/supabase";
 
 // ── Platform display helpers ──────────────────────────────────────────────────
 
 const PLATFORM_SHORT: Record<string, { letter: string; bg: string; text: string }> = {
   x:             { letter: "X", bg: "bg-platform-x",       text: "text-black"   },
   reddit:        { letter: "R", bg: "bg-platform-reddit",  text: "text-white"   },
-  telegram_free: { letter: "T", bg: "bg-platform-telegram",text: "text-white"   },
-  telegram_vip:  { letter: "V", bg: "bg-blue-600",         text: "text-white"   },
+  telegram_free:     { letter: "T", bg: "bg-platform-telegram", text: "text-white" },
+  telegram_free_vip: { letter: "F", bg: "bg-cyan-500",         text: "text-white" },
+  telegram_vip:      { letter: "V", bg: "bg-blue-600",         text: "text-white" },
   website:       { letter: "W", bg: "bg-platform-website", text: "text-white"   },
 };
 
@@ -241,10 +243,36 @@ export default function Scheduler() {
     if (selectedIds.size === 0 || posting) return;
     const toPost = approvedQueue.filter((item) => selectedIds.has(item.asset.id));
     setPosting(true);
+
+    const results: { asset: string; platform: string; ok: boolean; error?: string }[] = [];
+
     try {
-      // TODO: wire to Supabase edge functions per platform
-      console.log("[PostNow] assets to post:", toPost);
-      alert(`[Stub] Would post ${toPost.length} asset(s) now. Edge functions wired next.`);
+      for (const item of toPost) {
+        for (const platform of item.platforms) {
+          if (!platform.startsWith("telegram")) continue;
+          const caption = item.captions[platform] ?? "";
+          const fileType = item.asset.type === "video" ? "video" : "image";
+
+          const { data, error } = await supabase.functions.invoke("post-telegram", {
+            body: { platform, fileUrl: item.asset.fileUrl, fileType, caption },
+          });
+
+          results.push({
+            asset: item.asset.name,
+            platform,
+            ok: !error && data?.success,
+            error: error?.message ?? data?.error,
+          });
+        }
+      }
+
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length === 0) {
+        alert(`✅ Posted ${results.length} item(s) successfully.`);
+      } else {
+        const msgs = failed.map((r) => `${r.asset} → ${r.platform}: ${r.error}`).join("\n");
+        alert(`⚠️ ${results.length - failed.length} ok, ${failed.length} failed:\n${msgs}`);
+      }
     } finally {
       setPosting(false);
       cancelSelectionMode();
