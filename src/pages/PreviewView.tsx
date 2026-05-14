@@ -193,7 +193,7 @@ function TelegramBg() {
 
 // ── X / Twitter post ──────────────────────────────────────────────────────────
 
-function XPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption: string; notSelected?: boolean }) {
+function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
   return (
     <div
       className={`mx-auto border border-[#2f3336] rounded-2xl px-4 py-4 ${asset.ratio !== "landscape" ? "max-w-[440px]" : "max-w-[598px]"}`}
@@ -219,26 +219,24 @@ function XPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption:
           </div>
 
           {caption ? (
-            <p className={`mt-1 text-[15px] leading-relaxed whitespace-pre-wrap break-words${notSelected ? " text-[#536471] italic" : " text-white"}`}>{caption}</p>
+            <p className="mt-1 text-[15px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
           ) : (
             <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
           )}
 
-          {!notSelected && (
-            <div
-              className={`mt-3 rounded-[16px] overflow-hidden${
-                asset.ratio === "portrait"
-                  ? " max-w-[280px]"
-                  : asset.ratio === "square"
-                  ? " max-w-[400px] mx-auto"
-                  : ""
-              }`}
-            >
-              <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
-                <MediaBlock asset={asset} platform="x" />
-              </VideoPlayOverlay>
-            </div>
-          )}
+          <div
+            className={`mt-3 rounded-[16px] overflow-hidden${
+              asset.ratio === "portrait"
+                ? " max-w-[280px]"
+                : asset.ratio === "square"
+                ? " max-w-[400px] mx-auto"
+                : ""
+            }`}
+          >
+            <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+              <MediaBlock asset={asset} platform="x" />
+            </VideoPlayOverlay>
+          </div>
 
           <div className="mt-3 flex items-center justify-between text-[#536471]">
             <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
@@ -268,7 +266,7 @@ function XPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption:
 
 // ── Telegram post ─────────────────────────────────────────────────────────────
 
-function TelegramPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption: string; notSelected?: boolean }) {
+function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
   const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
@@ -280,40 +278,41 @@ function TelegramPost({ asset, caption, notSelected }: { asset: UploadedAsset; c
         maxWidth: "calc(100% - 2rem)",
       }}
     >
-      {!notSelected && (
+        {/* Image — GPU-composited wrapper so overflow:hidden clips promoted img layer */}
         <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
           <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
             <MediaBlock asset={asset} />
           </VideoPlayOverlay>
         </div>
-      )}
 
-      <div className="px-3 pt-2">
-        {caption ? (
-          <p className={`text-[14px] leading-relaxed whitespace-pre-wrap break-words${notSelected ? " italic" : " text-white"}`} style={notSelected ? { color: "rgba(255,255,255,0.35)" } : undefined}>{caption}</p>
-        ) : (
-          <p className="text-[13px] italic" style={{ color: "rgba(255,255,255,0.35)" }}>
-            No caption generated yet.
-          </p>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between px-3 pt-2 pb-2.5">
-        <div className="flex items-center gap-1.5">
-          {TELEGRAM_REACTIONS.map((r) => (
-            <div
-              key={r}
-              className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
-              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-            >
-              {r}
-            </div>
-          ))}
+        {/* Caption */}
+        <div className="px-3 pt-2">
+          {caption ? (
+            <p className="text-[14px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
+          ) : (
+            <p className="text-[13px] italic" style={{ color: "rgba(255,255,255,0.35)" }}>
+              No caption generated yet.
+            </p>
+          )}
         </div>
-        <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
-          {now}
-        </span>
-      </div>
+
+        {/* Emoji reactions + timestamp — inside bubble at the bottom */}
+        <div className="flex items-center justify-between px-3 pt-2 pb-2.5">
+          <div className="flex items-center gap-1.5">
+            {TELEGRAM_REACTIONS.map((r) => (
+              <div
+                key={r}
+                className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
+                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+              >
+                {r}
+              </div>
+            ))}
+          </div>
+          <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+            {now}
+          </span>
+        </div>
     </div>
   );
 }
@@ -347,7 +346,7 @@ function RedditPreview() {
 
 // ── Website preview ────────────────────────────────────────────────────────────
 
-function WebsitePreview({ asset, caption, notSelected }: { asset: UploadedAsset; caption: string; notSelected?: boolean }) {
+function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: string }) {
   const src = fullResSrc(asset);
   const [failed, setFailed] = useState(false);
 
@@ -518,9 +517,10 @@ export default function PreviewView() {
     }
     if (!selectedTabNames.has(activePlatform)) {
       const label = `${activePlatform} not selected for this batch`;
-      if (activePlatform === "X")        return <XPost asset={currentAsset} caption={label} notSelected />;
-      if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={label} notSelected />;
-      return <WebsitePreview asset={currentAsset} caption={label} notSelected />;
+      const emptyAsset = { ...currentAsset, previewUrl: "", fileUrl: "" };
+      if (activePlatform === "X")        return <XPost asset={emptyAsset} caption={label} />;
+      if (activePlatform === "Telegram") return <TelegramPost asset={emptyAsset} caption={label} />;
+      return <WebsitePreview asset={emptyAsset} caption={label} />;
     }
     if (activePlatform === "X")        return <XPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={currentCaption} />;
