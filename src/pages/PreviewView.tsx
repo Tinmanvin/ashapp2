@@ -516,11 +516,11 @@ export default function PreviewView() {
       );
     }
     if (!selectedTabNames.has(activePlatform)) {
-      return (
-        <div className="flex flex-col items-center justify-center gap-2 h-48">
-          <p className="text-body text-muted-foreground">{activePlatform} not selected for this batch.</p>
-        </div>
-      );
+      const emptyAsset = { ...currentAsset, previewUrl: "", fileUrl: "" };
+      const notSelected = `${activePlatform} not selected`;
+      if (activePlatform === "X")        return <XPost asset={emptyAsset} caption={notSelected} />;
+      if (activePlatform === "Telegram") return <TelegramPost asset={emptyAsset} caption={notSelected} />;
+      return <WebsitePreview asset={emptyAsset} caption={notSelected} />;
     }
     if (activePlatform === "X")        return <XPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={currentCaption} />;
