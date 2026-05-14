@@ -193,7 +193,7 @@ function TelegramBg() {
 
 // ── X / Twitter post ──────────────────────────────────────────────────────────
 
-function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
+function XPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption: string; notSelected?: boolean }) {
   return (
     <div
       className={`mx-auto border border-[#2f3336] rounded-2xl px-4 py-4 ${asset.ratio !== "landscape" ? "max-w-[440px]" : "max-w-[598px]"}`}
@@ -218,46 +218,54 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
             <span className="text-[15px] text-[#536471]">@AshBlackMagic</span>
           </div>
 
-          {caption ? (
-            <p className="mt-1 text-[15px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
+          {notSelected ? (
+            <div className="mt-6 mb-6 flex items-center justify-center">
+              <p className="text-[14px] text-[#536471] italic text-center">{caption}</p>
+            </div>
           ) : (
-            <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
+            <>
+              {caption ? (
+                <p className="mt-1 text-[15px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
+              ) : (
+                <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
+              )}
+
+              <div
+                className={`mt-3 rounded-[16px] overflow-hidden${
+                  asset.ratio === "portrait"
+                    ? " max-w-[280px]"
+                    : asset.ratio === "square"
+                    ? " max-w-[400px] mx-auto"
+                    : ""
+                }`}
+              >
+                <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+                  <MediaBlock asset={asset} platform="x" />
+                </VideoPlayOverlay>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-[#536471]">
+                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+                  <MessageCircle className="h-[18px] w-[18px]" /><span>42</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#00ba7c] transition-colors cursor-pointer">
+                  <Repeat2 className="h-[18px] w-[18px]" /><span>128</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#f91880] transition-colors cursor-pointer">
+                  <Heart className="h-[18px] w-[18px]" /><span>1.2K</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+                  <BarChart2 className="h-[18px] w-[18px]" /><span>24K</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+                  <Bookmark className="h-[18px] w-[18px]" />
+                </span>
+                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+                  <Share2 className="h-[18px] w-[18px]" />
+                </span>
+              </div>
+            </>
           )}
-
-          <div
-            className={`mt-3 rounded-[16px] overflow-hidden${
-              asset.ratio === "portrait"
-                ? " max-w-[280px]"
-                : asset.ratio === "square"
-                ? " max-w-[400px] mx-auto"
-                : ""
-            }`}
-          >
-            <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
-              <MediaBlock asset={asset} platform="x" />
-            </VideoPlayOverlay>
-          </div>
-
-          <div className="mt-3 flex items-center justify-between text-[#536471]">
-            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-              <MessageCircle className="h-[18px] w-[18px]" /><span>42</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#00ba7c] transition-colors cursor-pointer">
-              <Repeat2 className="h-[18px] w-[18px]" /><span>128</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#f91880] transition-colors cursor-pointer">
-              <Heart className="h-[18px] w-[18px]" /><span>1.2K</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-              <BarChart2 className="h-[18px] w-[18px]" /><span>24K</span>
-            </span>
-            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-              <Bookmark className="h-[18px] w-[18px]" />
-            </span>
-            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-              <Share2 className="h-[18px] w-[18px]" />
-            </span>
-          </div>
         </div>
       </div>
     </div>
@@ -266,7 +274,7 @@ function XPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
 
 // ── Telegram post ─────────────────────────────────────────────────────────────
 
-function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: string }) {
+function TelegramPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption: string; notSelected?: boolean }) {
   const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   return (
@@ -278,41 +286,46 @@ function TelegramPost({ asset, caption }: { asset: UploadedAsset; caption: strin
         maxWidth: "calc(100% - 2rem)",
       }}
     >
-        {/* Image — GPU-composited wrapper so overflow:hidden clips promoted img layer */}
-        <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
-          <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
-            <MediaBlock asset={asset} />
-          </VideoPlayOverlay>
+      {notSelected ? (
+        <div className="flex items-center justify-center py-16 px-4">
+          <p className="text-[13px] italic text-center" style={{ color: "rgba(255,255,255,0.35)" }}>{caption}</p>
         </div>
-
-        {/* Caption */}
-        <div className="px-3 pt-2">
-          {caption ? (
-            <p className="text-[14px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
-          ) : (
-            <p className="text-[13px] italic" style={{ color: "rgba(255,255,255,0.35)" }}>
-              No caption generated yet.
-            </p>
-          )}
-        </div>
-
-        {/* Emoji reactions + timestamp — inside bubble at the bottom */}
-        <div className="flex items-center justify-between px-3 pt-2 pb-2.5">
-          <div className="flex items-center gap-1.5">
-            {TELEGRAM_REACTIONS.map((r) => (
-              <div
-                key={r}
-                className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-              >
-                {r}
-              </div>
-            ))}
+      ) : (
+        <>
+          <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
+            <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+              <MediaBlock asset={asset} />
+            </VideoPlayOverlay>
           </div>
-          <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
-            {now}
-          </span>
-        </div>
+
+          <div className="px-3 pt-2">
+            {caption ? (
+              <p className="text-[14px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
+            ) : (
+              <p className="text-[13px] italic" style={{ color: "rgba(255,255,255,0.35)" }}>
+                No caption generated yet.
+              </p>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between px-3 pt-2 pb-2.5">
+            <div className="flex items-center gap-1.5">
+              {TELEGRAM_REACTIONS.map((r) => (
+                <div
+                  key={r}
+                  className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
+                  style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+                >
+                  {r}
+                </div>
+              ))}
+            </div>
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+              {now}
+            </span>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -346,13 +359,23 @@ function RedditPreview() {
 
 // ── Website preview ────────────────────────────────────────────────────────────
 
-function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: string }) {
+function WebsitePreview({ asset, caption, notSelected }: { asset: UploadedAsset; caption: string; notSelected?: boolean }) {
   const src = fullResSrc(asset);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => { setFailed(false); }, [src]);
 
   const isPortrait = asset.ratio === "portrait";
+
+  if (notSelected) {
+    return (
+      <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
+        <div className="flex items-center justify-center py-16 px-4">
+          <p className="text-sub text-muted-foreground italic text-center">{caption}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
@@ -516,11 +539,10 @@ export default function PreviewView() {
       );
     }
     if (!selectedTabNames.has(activePlatform)) {
-      const emptyAsset = { ...currentAsset, previewUrl: "", fileUrl: "" };
-      const notSelected = `${activePlatform} not selected`;
-      if (activePlatform === "X")        return <XPost asset={emptyAsset} caption={notSelected} />;
-      if (activePlatform === "Telegram") return <TelegramPost asset={emptyAsset} caption={notSelected} />;
-      return <WebsitePreview asset={emptyAsset} caption={notSelected} />;
+      const label = `${activePlatform} not selected for this batch`;
+      if (activePlatform === "X")        return <XPost asset={currentAsset} caption={label} notSelected />;
+      if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={label} notSelected />;
+      return <WebsitePreview asset={currentAsset} caption={label} notSelected />;
     }
     if (activePlatform === "X")        return <XPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={currentCaption} />;
