@@ -7,6 +7,9 @@ const CORE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
 // Telegram Bot API hard limit. We target 45 MB to leave headroom.
 export const TELEGRAM_VIDEO_LIMIT = 45 * 1024 * 1024;
 
+// X/Twitter image limit. We trigger compression above 4.5 MB to leave headroom.
+export const X_IMAGE_LIMIT = 4.5 * 1024 * 1024;
+
 let instance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
 
@@ -78,5 +81,40 @@ export async function compressVideoForTelegram(
     ff.off('progress', handleProgress);
     await ff.deleteFile('input.mp4').catch(() => {});
     await ff.deleteFile('output.mp4').catch(() => {});
+  }
+}
+
+/**
+ * Compress an image so it fits under X's 5 MB limit.
+ * Returns null if the file is already small enough.
+ *
+ * @param fileUrl        Public URL of the source image
+ * @param fileSizeBytes  Known byte size (used to skip when unnecessary)
+ */
+export async function compressImageForX(
+  fileUrl: string,
+  fileSizeBytes: number,
+): Promise<Blob | null> {
+  if (fileSizeBytes <= X_IMAGE_LIMIT) return null;
+
+  const ff = await getInstance();
+
+  try {
+    const inputData = await fetchFile(fileUrl);
+    await ff.writeFile('input_img', inputData);
+
+    // Re-encode as high-quality JPEG — virtually no visible quality loss
+    await ff.exec([
+      '-i', 'input_img',
+      '-q:v', '3',   // JPEG quality 1–31, lower = better; 3 ≈ 92% quality
+      '-y',
+      'output_img.jpg',
+    ]);
+
+    const data = await ff.readFile('output_img.jpg') as Uint8Array;
+    return new Blob([data], { type: 'image/jpeg' });
+  } finally {
+    await ff.deleteFile('input_img').catch(() => {});
+    await ff.deleteFile('output_img.jpg').catch(() => {});
   }
 }
