@@ -408,7 +408,18 @@ export default function PreviewView() {
   const { selectedAssets, selectedPlatforms } = useProcessingStore();
   const { setApprovedQueue } = useSchedulerStore();
 
-  const [activePlatform, setActivePlatform] = useState("X");
+  // Derive which tabs are active based on selectedPlatforms
+  const selectedTabNames = new Set(
+    platformTabs
+      .filter((p) => {
+        if (p.name === "Telegram") return selectedPlatforms.some((sp) => sp.startsWith("telegram"));
+        return selectedPlatforms.includes(TAB_TO_PLATFORM_ID[p.name]);
+      })
+      .map((p) => p.name)
+  );
+
+  const firstSelectedTab = platformTabs.find((p) => selectedTabNames.has(p.name))?.name ?? "X";
+  const [activePlatform, setActivePlatform] = useState(firstSelectedTab);
   const [currentIdx, setCurrentIdx]         = useState(0);
   const [approvedIds, setApprovedIds]       = useState<Set<string>>(new Set());
   const [captions, setCaptions]             = useState<Record<string, string>>({});
@@ -501,6 +512,13 @@ export default function PreviewView() {
           >
             Go to Library
           </button>
+        </div>
+      );
+    }
+    if (!selectedTabNames.has(activePlatform)) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-2 h-48">
+          <p className="text-body text-muted-foreground">{activePlatform} not selected for this batch.</p>
         </div>
       );
     }

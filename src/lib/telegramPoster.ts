@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { uploadToR2, deleteFromR2, isR2Configured } from '@/lib/r2';
 import { compressVideoForTelegram, TELEGRAM_VIDEO_LIMIT } from '@/lib/videoCompressor';
 import { postToX } from '@/lib/xPoster';
+import { postToWebsite } from '@/lib/websitePoster';
 import type { ScheduledAsset } from '@/store/schedulerStore';
 
 export type PostStage = 'compressing' | 'uploading' | 'posting' | null;
@@ -72,6 +73,11 @@ export async function postScheduledItem(
     for (const platform of item.platforms) {
       if (platform === 'x') {
         results.push(await postToX(item));
+        continue;
+      }
+
+      if (platform === 'website') {
+        results.push(await postToWebsite(item));
         continue;
       }
 

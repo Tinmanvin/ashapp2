@@ -1,20 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createHmac } from "node:crypto";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const API_KEY            = Deno.env.get("X_API_KEY")            ?? "";
-const API_SECRET         = Deno.env.get("X_API_SECRET")         ?? "";
-const ACCESS_TOKEN       = Deno.env.get("X_ACCESS_TOKEN")       ?? "";
-const ACCESS_TOKEN_SECRET = Deno.env.get("X_ACCESS_TOKEN_SECRET") ?? "";
+const API_KEY             = (Deno.env.get("X_API_KEY")             ?? "").trim();
+const API_SECRET          = (Deno.env.get("X_API_SECRET")          ?? "").trim();
+const ACCESS_TOKEN        = (Deno.env.get("X_ACCESS_TOKEN")        ?? "").trim();
+const ACCESS_TOKEN_SECRET = (Deno.env.get("X_ACCESS_TOKEN_SECRET") ?? "").trim();
 
 const UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
 const TWEET_URL  = "https://api.twitter.com/2/tweets";
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5 MB
 
-// ── OAuth 1.0a helpers ────────────────────────────────────────────────────────
+// ── OAuth 1.0a ────────────────────────────────────────────────────────────────
 
 function pct(s: string): string {
   return encodeURIComponent(s)
@@ -22,43 +23,34 @@ function pct(s: string): string {
     .replace(/\(/g, "%28").replace(/\)/g, "%29").replace(/\*/g, "%2A");
 }
 
-async function oauthHeader(
+function oauthHeader(
   method: string,
   url: string,
-  // extra params to include in the OAuth signature base string (form params for urlencoded, query params for GET)
-  sigParams: Record<string, string> = {},
-): Promise<string> {
-  const nonce = crypto.randomUUID().replace(/-/g, "");
-  const ts    = Math.floor(Date.now() / 1000).toString();
-
+  requestParams: Record<string, string> = {},
+): string {
   const oauthParams: Record<string, string> = {
     oauth_consumer_key:     API_KEY,
-    oauth_nonce:            nonce,
+    oauth_nonce:            crypto.randomUUID().replace(/-/g, ""),
     oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp:        ts,
+    oauth_timestamp:        String(Math.floor(Date.now() / 1000)),
     oauth_token:            ACCESS_TOKEN,
     oauth_version:          "1.0",
   };
 
-  const allParams = { ...oauthParams, ...sigParams };
+  // Merge all params, percent-encode, sort, join into parameter string
+  const allParams = { ...oauthParams, ...requestParams };
   const paramStr = Object.entries(allParams)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([k, v]) => `${pct(k)}=${pct(v)}`)
+    .map(([k, v]) => [pct(k), pct(v)] as [string, string])
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([k, v]) => `${k}=${v}`)
     .join("&");
 
   const baseStr  = `${method.toUpperCase()}&${pct(url)}&${pct(paramStr)}`;
   const sigKey   = `${pct(API_SECRET)}&${pct(ACCESS_TOKEN_SECRET)}`;
-
-  const enc = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw", enc.encode(sigKey),
-    { name: "HMAC", hash: "SHA-1" }, false, ["sign"],
-  );
-  const sig       = await crypto.subtle.sign("HMAC", key, enc.encode(baseStr));
-  const signature = btoa(String.fromCharCode(...new Uint8Array(sig)));
+  const signature = createHmac("sha1", sigKey).update(baseStr).digest("base64");
 
   return "OAuth " + Object.entries({ ...oauthParams, oauth_signature: signature })
-    .sort(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([k, v]) => `${pct(k)}="${pct(v)}"`)
     .join(", ");
 }
@@ -76,7 +68,7 @@ async function mediaInit(
     media_type:     mediaType,
     media_category: mediaCategory,
   };
-  const auth = await oauthHeader("POST", UPLOAD_URL, params);
+  const auth = oauthHeader("POST", UPLOAD_URL, params);
   const res  = await fetch(UPLOAD_URL, {
     method:  "POST",
     headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
@@ -92,8 +84,8 @@ async function mediaAppend(
   chunk: Uint8Array,
   segmentIndex: number,
 ): Promise<void> {
-  // multipart/form-data — body params are NOT included in OAuth signature
-  const auth = await oauthHeader("POST", UPLOAD_URL);
+  // multipart/form-data — body params NOT included in OAuth signature
+  const auth = oauthHeader("POST", UPLOAD_URL);
   const form = new FormData();
   form.append("command",       "APPEND");
   form.append("media_id",      mediaId);
@@ -113,7 +105,7 @@ async function mediaAppend(
 
 async function mediaFinalize(mediaId: string): Promise<void> {
   const params = { command: "FINALIZE", media_id: mediaId };
-  const auth   = await oauthHeader("POST", UPLOAD_URL, params);
+  const auth   = oauthHeader("POST", UPLOAD_URL, params);
   const res    = await fetch(UPLOAD_URL, {
     method:  "POST",
     headers: { Authorization: auth, "Content-Type": "application/x-www-form-urlencoded" },
@@ -128,7 +120,7 @@ async function pollMediaStatus(mediaId: string): Promise<void> {
   const statusUrl = `${UPLOAD_URL}?command=STATUS&media_id=${mediaId}`;
 
   for (let i = 0; i < 30; i++) {
-    const auth = await oauthHeader("GET", UPLOAD_URL, sigParams);
+    const auth = oauthHeader("GET", UPLOAD_URL, sigParams);
     const res  = await fetch(statusUrl, { headers: { Authorization: auth } });
     const data = await res.json();
     const info = data.processing_info;
@@ -140,7 +132,7 @@ async function pollMediaStatus(mediaId: string): Promise<void> {
 }
 
 async function postTweet(text: string, mediaId: string): Promise<unknown> {
-  const auth = await oauthHeader("POST", TWEET_URL);
+  const auth = oauthHeader("POST", TWEET_URL);
   const res  = await fetch(TWEET_URL, {
     method:  "POST",
     headers: { Authorization: auth, "Content-Type": "application/json" },
