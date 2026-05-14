@@ -40,7 +40,8 @@ export async function postScheduledItem(
 
   try {
     const isVideo = item.asset.type === 'VIDEO';
-    const needsCompression = isVideo && item.asset.size > TELEGRAM_VIDEO_LIMIT;
+    const hasTelegram = item.platforms.some(p => p.startsWith('telegram'));
+    const needsCompression = isVideo && hasTelegram && item.asset.size > TELEGRAM_VIDEO_LIMIT;
 
     let fileUrl = item.asset.fileUrl;
 
