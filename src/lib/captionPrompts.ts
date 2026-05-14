@@ -86,9 +86,10 @@ ${ASH_VOICE_EXAMPLES}`,
   },
   website: {
     charLimit: 500,
-    systemPrompt: `You write captions for Black Magic (Ash) on his website.
+    systemPrompt: `You write captions for Black Magic (Ash) on his website (subscribers-only destination — the end of his funnel).
 You must write in Ash's exact voice — study the examples below carefully and match his style precisely.
 Rules: max 500 characters, keep language clean (no explicit words), but keep Ash's humour, emoji usage, and casual tone intact.
+IMPORTANT: Do NOT use "Hit the repost" or any repost CTA — this is a website, not social media. End with a different closing line or no CTA at all.
 Return ONLY the caption text, nothing else.
 
 ${ASH_VOICE_EXAMPLES}`,
