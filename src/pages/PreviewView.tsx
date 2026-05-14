@@ -218,54 +218,48 @@ function XPost({ asset, caption, notSelected }: { asset: UploadedAsset; caption:
             <span className="text-[15px] text-[#536471]">@AshBlackMagic</span>
           </div>
 
-          {notSelected ? (
-            <div className="mt-6 mb-6 flex items-center justify-center">
-              <p className="text-[14px] text-[#536471] italic text-center">{caption}</p>
-            </div>
+          {caption ? (
+            <p className={`mt-1 text-[15px] leading-relaxed whitespace-pre-wrap break-words${notSelected ? " text-[#536471] italic" : " text-white"}`}>{caption}</p>
           ) : (
-            <>
-              {caption ? (
-                <p className="mt-1 text-[15px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
-              ) : (
-                <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
-              )}
-
-              <div
-                className={`mt-3 rounded-[16px] overflow-hidden${
-                  asset.ratio === "portrait"
-                    ? " max-w-[280px]"
-                    : asset.ratio === "square"
-                    ? " max-w-[400px] mx-auto"
-                    : ""
-                }`}
-              >
-                <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
-                  <MediaBlock asset={asset} platform="x" />
-                </VideoPlayOverlay>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between text-[#536471]">
-                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-                  <MessageCircle className="h-[18px] w-[18px]" /><span>42</span>
-                </span>
-                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#00ba7c] transition-colors cursor-pointer">
-                  <Repeat2 className="h-[18px] w-[18px]" /><span>128</span>
-                </span>
-                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#f91880] transition-colors cursor-pointer">
-                  <Heart className="h-[18px] w-[18px]" /><span>1.2K</span>
-                </span>
-                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-                  <BarChart2 className="h-[18px] w-[18px]" /><span>24K</span>
-                </span>
-                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-                  <Bookmark className="h-[18px] w-[18px]" />
-                </span>
-                <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
-                  <Share2 className="h-[18px] w-[18px]" />
-                </span>
-              </div>
-            </>
+            <p className="mt-1 text-[14px] text-[#536471] italic">No caption generated yet.</p>
           )}
+
+          {!notSelected && (
+            <div
+              className={`mt-3 rounded-[16px] overflow-hidden${
+                asset.ratio === "portrait"
+                  ? " max-w-[280px]"
+                  : asset.ratio === "square"
+                  ? " max-w-[400px] mx-auto"
+                  : ""
+              }`}
+            >
+              <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+                <MediaBlock asset={asset} platform="x" />
+              </VideoPlayOverlay>
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center justify-between text-[#536471]">
+            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+              <MessageCircle className="h-[18px] w-[18px]" /><span>42</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#00ba7c] transition-colors cursor-pointer">
+              <Repeat2 className="h-[18px] w-[18px]" /><span>128</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#f91880] transition-colors cursor-pointer">
+              <Heart className="h-[18px] w-[18px]" /><span>1.2K</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+              <BarChart2 className="h-[18px] w-[18px]" /><span>24K</span>
+            </span>
+            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+              <Bookmark className="h-[18px] w-[18px]" />
+            </span>
+            <span className="flex items-center gap-1.5 text-[13px] hover:text-[#1d9bf0] transition-colors cursor-pointer">
+              <Share2 className="h-[18px] w-[18px]" />
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -286,46 +280,40 @@ function TelegramPost({ asset, caption, notSelected }: { asset: UploadedAsset; c
         maxWidth: "calc(100% - 2rem)",
       }}
     >
-      {notSelected ? (
-        <div className="flex items-center justify-center py-16 px-4">
-          <p className="text-[13px] italic text-center" style={{ color: "rgba(255,255,255,0.35)" }}>{caption}</p>
+      {!notSelected && (
+        <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
+          <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
+            <MediaBlock asset={asset} />
+          </VideoPlayOverlay>
         </div>
-      ) : (
-        <>
-          <div style={{ borderRadius: "1rem 1rem 0 0", overflow: "hidden", transform: "translateZ(0)" }}>
-            <VideoPlayOverlay isVideo={asset.type === "VIDEO"}>
-              <MediaBlock asset={asset} />
-            </VideoPlayOverlay>
-          </div>
-
-          <div className="px-3 pt-2">
-            {caption ? (
-              <p className="text-[14px] leading-relaxed text-white whitespace-pre-wrap break-words">{caption}</p>
-            ) : (
-              <p className="text-[13px] italic" style={{ color: "rgba(255,255,255,0.35)" }}>
-                No caption generated yet.
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between px-3 pt-2 pb-2.5">
-            <div className="flex items-center gap-1.5">
-              {TELEGRAM_REACTIONS.map((r) => (
-                <div
-                  key={r}
-                  className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
-                  style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-                >
-                  {r}
-                </div>
-              ))}
-            </div>
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
-              {now}
-            </span>
-          </div>
-        </>
       )}
+
+      <div className="px-3 pt-2">
+        {caption ? (
+          <p className={`text-[14px] leading-relaxed whitespace-pre-wrap break-words${notSelected ? " italic" : " text-white"}`} style={notSelected ? { color: "rgba(255,255,255,0.35)" } : undefined}>{caption}</p>
+        ) : (
+          <p className="text-[13px] italic" style={{ color: "rgba(255,255,255,0.35)" }}>
+            No caption generated yet.
+          </p>
+        )}
+      </div>
+
+      <div className="flex items-center justify-between px-3 pt-2 pb-2.5">
+        <div className="flex items-center gap-1.5">
+          {TELEGRAM_REACTIONS.map((r) => (
+            <div
+              key={r}
+              className="rounded-full px-2 py-0.5 text-[12px] text-white cursor-pointer select-none"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+            >
+              {r}
+            </div>
+          ))}
+        </div>
+        <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.38)" }}>
+          {now}
+        </span>
+      </div>
     </div>
   );
 }
@@ -366,16 +354,6 @@ function WebsitePreview({ asset, caption, notSelected }: { asset: UploadedAsset;
   useEffect(() => { setFailed(false); }, [src]);
 
   const isPortrait = asset.ratio === "portrait";
-
-  if (notSelected) {
-    return (
-      <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
-        <div className="flex items-center justify-center py-16 px-4">
-          <p className="text-sub text-muted-foreground italic text-center">{caption}</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="card-surface rounded-2xl overflow-hidden w-[80%] mx-auto">
