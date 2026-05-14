@@ -518,9 +518,10 @@ export default function PreviewView() {
     if (!selectedTabNames.has(activePlatform)) {
       const label = `${activePlatform} not selected for this batch`;
       const emptyAsset = { ...currentAsset, previewUrl: "", fileUrl: "" };
-      if (activePlatform === "X")        return <XPost asset={emptyAsset} caption={label} />;
-      if (activePlatform === "Telegram") return <TelegramPost asset={emptyAsset} caption={label} />;
-      return <WebsitePreview asset={emptyAsset} caption={label} />;
+      const card = activePlatform === "X" ? <XPost asset={emptyAsset} caption={label} />
+                 : activePlatform === "Telegram" ? <TelegramPost asset={emptyAsset} caption={label} />
+                 : <WebsitePreview asset={emptyAsset} caption={label} />;
+      return <div className="flex items-center justify-center min-h-[70vh]">{card}</div>;
     }
     if (activePlatform === "X")        return <XPost asset={currentAsset} caption={currentCaption} />;
     if (activePlatform === "Telegram") return <TelegramPost asset={currentAsset} caption={currentCaption} />;
