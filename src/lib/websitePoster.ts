@@ -8,7 +8,7 @@ export async function postToWebsite(item: ScheduledAsset): Promise<PostResult> {
   const cfg = item.websiteConfig;
 
   const title      = (cfg?.title?.trim() || item.asset.name).replace(/\.[^/.]+$/, '');
-  const externalId = `contenthub-${item.asset.id}`;
+  const externalId = `contenthub-${item.asset.id}-${Date.now()}`;
   const categories = cfg?.categories ?? [];
   const tags       = cfg?.tags ?? [];
   const thumbnailUrl = cfg?.thumbnailUrl || item.asset.previewUrl || '';
