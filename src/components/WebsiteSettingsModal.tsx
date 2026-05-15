@@ -60,8 +60,9 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // Category is single-select — API accepts one string value
   const toggleCategory = (cat: string) =>
-    setCategories((prev) => prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]);
+    setCategories((prev) => prev[0] === cat ? [] : [cat]);
 
   const toggleTag = (tag: string) =>
     setTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);

@@ -27,9 +27,22 @@ serve(async (req) => {
       });
     }
 
-    // "Free" category uses signed policy, everything else uses DRM
     const cats = categories ?? [];
-    const playbackPolicy = cats.includes("Free") ? "signed" : "drm";
+    // API accepts a single category string
+    const category = cats[0] ?? "";
+    const playbackPolicy = category === "Free" ? "signed" : "drm";
+
+    const payload = {
+      title,
+      description:     "",
+      scheduled_at:    null,
+      tags:            tags ?? [],
+      category,
+      playback_policy: playbackPolicy,
+      thumbnail_url:   thumbnailUrl ?? "",
+      external_id:     externalId,
+      source:          "ContentHub",
+    };
 
     // Step 1: POST metadata → get upload_url
     const metaRes = await fetch(`${BASE_URL}/api/publish/uploads`, {
@@ -39,30 +52,22 @@ serve(async (req) => {
         "Content-Type":  "application/json",
         "Accept":        "application/json",
       },
-      body: JSON.stringify({
-        title,
-        description:     "",
-        scheduled_at:    null,
-        tags:            tags ?? [],
-        categories:      cats,
-        playback_policy: playbackPolicy,
-        thumbnail_url:   thumbnailUrl ?? "",
-        external_id:     externalId,
-        source:          "ContentHub",
-      }),
+      body: JSON.stringify(payload),
     });
 
-    const metaData = await metaRes.json();
+    const metaText = await metaRes.text();
     if (!metaRes.ok) {
-      throw new Error(`Metadata POST failed: ${JSON.stringify(metaData)}`);
+      throw new Error(`Metadata POST failed (${metaRes.status}): ${metaText}`);
     }
 
-    const { content_id, upload_url } = metaData as {
+    const metaData = JSON.parse(metaText) as {
       content_id: number;
       upload_url: string;
       expires_at: string;
       status:     string;
     };
+
+    const { content_id, upload_url } = metaData;
 
     // Step 2: fetch the file and PUT it to the upload_url
     const fileRes = await fetch(fileUrl);
