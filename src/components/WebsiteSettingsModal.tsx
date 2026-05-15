@@ -174,12 +174,13 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
                   Thumbnail
                 </label>
 
-                {/* Thumbnail — natural size, border wraps the image */}
+                {/* Thumbnail — natural size capped so upload row always shows */}
                 {thumbnailPreviewUrl ? (
                   <img
                     src={thumbnailPreviewUrl}
                     alt="Thumbnail preview"
                     className="w-full rounded-xl block card-elevated"
+                    style={{ maxHeight: "calc(80vh - 160px)" }}
                   />
                 ) : (
                   <div className="w-full rounded-xl card-elevated relative" style={{ aspectRatio: "3/4" }}>
