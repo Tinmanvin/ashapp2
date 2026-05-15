@@ -174,23 +174,21 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
                   Thumbnail
                 </label>
 
-                {/* Portrait thumbnail — flex-1 so it fills remaining column height */}
-                <div className="flex-1 rounded-xl overflow-hidden card-elevated relative min-h-0">
-                  {thumbnailPreviewUrl ? (
-                    <img
-                      src={thumbnailPreviewUrl}
-                      alt="Thumbnail preview"
-                      className="absolute inset-0 w-full h-full object-contain"
-                    />
-                  ) : (
-                    <>
-                      <div className="absolute inset-0 atmospheric-glow opacity-30" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
-                      </div>
-                    </>
-                  )}
-                </div>
+                {/* Thumbnail — natural size, border wraps the image */}
+                {thumbnailPreviewUrl ? (
+                  <img
+                    src={thumbnailPreviewUrl}
+                    alt="Thumbnail preview"
+                    className="w-full rounded-xl block card-elevated"
+                  />
+                ) : (
+                  <div className="w-full rounded-xl card-elevated relative" style={{ aspectRatio: "3/4" }}>
+                    <div className="absolute inset-0 atmospheric-glow opacity-30" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                    </div>
+                  </div>
+                )}
 
                 {/* Compact upload row */}
                 <div
