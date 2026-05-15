@@ -165,17 +165,17 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
               </button>
             </div>
 
-            {/* Body — 2-column layout */}
-            <div className="flex gap-0 min-h-0">
+            {/* Body — true 50/50 split, no footer */}
+            <div className="flex min-h-0" style={{ maxHeight: "80vh" }}>
 
-              {/* Left column — thumbnail */}
-              <div className="w-52 shrink-0 p-5 flex flex-col gap-2 border-r border-white/[0.06]">
+              {/* Left — thumbnail fills full column height */}
+              <div className="w-1/2 p-5 flex flex-col gap-2 border-r border-white/[0.06]">
                 <label className="block text-micro font-satoshi text-muted-foreground uppercase tracking-wider mb-1">
                   Thumbnail
                 </label>
 
-                {/* Portrait preview matching site aspect ratio */}
-                <div className="rounded-xl overflow-hidden card-elevated relative" style={{ aspectRatio: "3/4" }}>
+                {/* Portrait thumbnail — flex-1 so it fills remaining column height */}
+                <div className="flex-1 rounded-xl overflow-hidden card-elevated relative min-h-0">
                   {thumbnailPreviewUrl ? (
                     <img
                       src={thumbnailPreviewUrl}
@@ -194,12 +194,12 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
 
                 {/* Compact upload row */}
                 <div
-                  className="rounded-lg border border-dashed border-white/[0.12] hover:border-[hsl(var(--accent-primary)/0.4)] px-3 py-2 flex items-center cursor-pointer transition-all duration-200 card-elevated"
+                  className="shrink-0 rounded-lg border border-dashed border-white/[0.12] hover:border-[hsl(var(--accent-primary)/0.4)] px-3 py-2 flex items-center cursor-pointer transition-all duration-200 card-elevated"
                   onClick={() => thumbInputRef.current?.click()}
                 >
                   <div className="flex flex-1 items-center gap-1.5 text-muted-foreground">
                     <Upload className="h-3 w-3" />
-                    <span className="text-micro font-satoshi">Change</span>
+                    <span className="text-micro font-satoshi">Change thumbnail</span>
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); setShowDrivePicker(true); }}
@@ -211,117 +211,114 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
                 </div>
               </div>
 
-              {/* Right column — fields */}
-              <div className="flex-1 px-5 py-5 flex flex-col gap-4 overflow-y-auto" style={{ maxHeight: "70vh" }}>
+              {/* Right — fields + Okay pinned at bottom */}
+              <div className="w-1/2 flex flex-col">
+                {/* Scrollable fields */}
+                <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-4">
 
-                {/* Title */}
-                <div>
-                  <label className="block text-micro font-satoshi text-muted-foreground uppercase tracking-wider mb-2">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={isBatch ? "Leave blank to use individual filenames" : "Enter title…"}
-                    className="w-full rounded-lg px-3 py-2 text-body font-satoshi text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-[hsl(var(--accent-primary)/0.5)] transition-all"
-                    style={{
-                      background: "hsl(var(--bg-elevated) / 0.5)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                    }}
-                  />
+                  {/* Title */}
+                  <div>
+                    <label className="block text-micro font-satoshi text-muted-foreground uppercase tracking-wider mb-2">
+                      Title
+                    </label>
+                    <input
+                      type="text"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder={isBatch ? "Leave blank to use individual filenames" : "Enter title…"}
+                      className="w-full rounded-lg px-3 py-2 text-body font-satoshi text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-[hsl(var(--accent-primary)/0.5)] transition-all"
+                      style={{
+                        background: "hsl(var(--bg-elevated) / 0.5)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                      }}
+                    />
+                  </div>
+
+                  <div className="border-t border-white/[0.06]" />
+
+                  {/* Categories */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <label className="text-micro font-satoshi text-muted-foreground uppercase tracking-wider">
+                        Category
+                      </label>
+                      <span className="text-micro font-satoshi text-[hsl(var(--danger)/0.7)]">
+                        required
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {WEBSITE_CATEGORIES.map((cat) => {
+                        const active = categories.includes(cat);
+                        return (
+                          <button
+                            key={cat}
+                            onClick={() => toggleCategory(cat)}
+                            className={`rounded-full px-3 py-1.5 text-micro font-medium font-satoshi transition-all ${
+                              active
+                                ? "glass-accent text-white"
+                                : "glass-button text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/[0.06]" />
+
+                  {/* Tags */}
+                  <div>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <label className="text-micro font-satoshi text-muted-foreground uppercase tracking-wider">
+                        Tags
+                      </label>
+                      <span className="text-micro font-satoshi text-muted-foreground/50">optional</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {WEBSITE_TAGS.map((tag) => {
+                        const active = tags.includes(tag);
+                        return (
+                          <button
+                            key={tag}
+                            onClick={() => toggleTag(tag)}
+                            className={`rounded-full px-3 py-1.5 text-micro font-medium font-satoshi transition-all ${
+                              active
+                                ? "bg-white/[0.14] border border-white/20 text-foreground"
+                                : "glass-button text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {tag}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="border-t border-white/[0.06]" />
-
-                {/* Categories */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <label className="text-micro font-satoshi text-muted-foreground uppercase tracking-wider">
-                      Category
-                    </label>
-                    <span className="text-micro font-satoshi text-[hsl(var(--danger)/0.7)]">
-                      required
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {WEBSITE_CATEGORIES.map((cat) => {
-                      const active = categories.includes(cat);
-                      return (
-                        <button
-                          key={cat}
-                          onClick={() => toggleCategory(cat)}
-                          className={`rounded-full px-3 py-1.5 text-micro font-medium font-satoshi transition-all ${
-                            active
-                              ? "glass-accent text-white"
-                              : "glass-button text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {cat}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="border-t border-white/[0.06]" />
-
-                {/* Tags */}
-                <div>
-                  <div className="flex items-center gap-2 mb-2.5">
-                    <label className="text-micro font-satoshi text-muted-foreground uppercase tracking-wider">
-                      Tags
-                    </label>
-                    <span className="text-micro font-satoshi text-muted-foreground/50">optional</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {WEBSITE_TAGS.map((tag) => {
-                      const active = tags.includes(tag);
-                      return (
-                        <button
-                          key={tag}
-                          onClick={() => toggleTag(tag)}
-                          className={`rounded-full px-3 py-1.5 text-micro font-medium font-satoshi transition-all ${
-                            active
-                              ? "bg-white/[0.14] border border-white/20 text-foreground"
-                              : "glass-button text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {tag}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {/* Okay — pinned at bottom of right column */}
+                <div className="shrink-0 px-5 py-4 border-t border-white/[0.06] flex justify-end">
+                  <button
+                    onClick={handleOk}
+                    disabled={!canConfirm}
+                    className={`rounded-full px-6 py-2 text-body font-semibold font-satoshi transition-all flex items-center gap-2 ${
+                      canConfirm
+                        ? "glass-accent text-white"
+                        : "glass-button text-muted-foreground opacity-40 cursor-not-allowed"
+                    }`}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        Uploading…
+                      </>
+                    ) : (
+                      "Okay"
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between px-5 py-4 border-t border-white/[0.08]">
-              <button
-                onClick={onClose}
-                className="rounded-full glass-button px-5 py-2 text-body text-muted-foreground hover:text-foreground transition-colors font-satoshi"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleOk}
-                disabled={!canConfirm}
-                className={`rounded-full px-5 py-2 text-body font-semibold font-satoshi transition-all flex items-center gap-2 ${
-                  canConfirm
-                    ? "glass-accent text-white"
-                    : "glass-button text-muted-foreground opacity-40 cursor-not-allowed"
-                }`}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Uploading…
-                  </>
-                ) : (
-                  "Okay"
-                )}
-              </button>
             </div>
           </motion.div>
         </motion.div>
