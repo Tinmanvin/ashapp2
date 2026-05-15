@@ -69,6 +69,15 @@ serve(async (req) => {
 
     const { content_id, upload_url } = metaData;
 
+    // upload_url is null when external_id was already registered (idempotent response)
+    // In that case the video is already on the platform — treat as success
+    if (!upload_url) {
+      return new Response(
+        JSON.stringify({ success: true, content_id, already_registered: true }),
+        { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
+      );
+    }
+
     // Step 2: fetch the file and PUT it to the upload_url
     const fileRes = await fetch(fileUrl);
     if (!fileRes.ok) {
