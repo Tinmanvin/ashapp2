@@ -180,7 +180,7 @@ export default function WebsiteSettingsModal({ assets, initialConfig, onOk, onCl
                     <img
                       src={thumbnailPreviewUrl}
                       alt="Thumbnail preview"
-                      className="absolute inset-0 w-full h-full object-cover"
+                      className="absolute inset-0 w-full h-full object-contain"
                     />
                   ) : (
                     <>
