@@ -405,7 +405,7 @@ function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: str
 
 export default function PreviewView() {
   const navigate = useNavigate();
-  const { selectedAssets, selectedPlatforms } = useProcessingStore();
+  const { selectedAssets, selectedPlatforms, websiteConfig } = useProcessingStore();
   const { setApprovedQueue } = useSchedulerStore();
 
   // Derive which tabs are active based on selectedPlatforms
@@ -646,6 +646,7 @@ export default function PreviewView() {
                 captions: Object.fromEntries(
                   selectedPlatforms.map((p) => [p, captions[`${asset.id}:${p}`] ?? ""])
                 ),
+                ...(websiteConfig ? { websiteConfig } : {}),
               }));
               setApprovedQueue(queue);
               navigate("/scheduler");

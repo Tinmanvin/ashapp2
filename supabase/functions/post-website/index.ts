@@ -12,10 +12,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { fileUrl, title, externalId } = await req.json() as {
-      fileUrl:    string;
-      title:      string;
-      externalId: string;
+    const { fileUrl, title, externalId, categories, tags, thumbnailUrl } = await req.json() as {
+      fileUrl:      string;
+      title:        string;
+      externalId:   string;
+      categories?:  string[];
+      tags?:        string[];
+      thumbnailUrl?: string;
     };
 
     if (!API_KEY) {
@@ -23,6 +26,10 @@ serve(async (req) => {
         status: 500, headers: { ...CORS, "Content-Type": "application/json" },
       });
     }
+
+    // "Free" category uses signed policy, everything else uses DRM
+    const cats = categories ?? [];
+    const playbackPolicy = cats.includes("Free") ? "signed" : "drm";
 
     // Step 1: POST metadata → get upload_url
     const metaRes = await fetch(`${BASE_URL}/api/publish/uploads`, {
@@ -36,10 +43,10 @@ serve(async (req) => {
         title,
         description:     "",
         scheduled_at:    null,
-        tags:            [],
-        category:        "",
-        playback_policy: "drm",
-        thumbnail_url:   "",
+        tags:            tags ?? [],
+        categories:      cats,
+        playback_policy: playbackPolicy,
+        thumbnail_url:   thumbnailUrl ?? "",
         external_id:     externalId,
         source:          "ContentHub",
       }),

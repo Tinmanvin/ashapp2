@@ -21,7 +21,8 @@ import { toast } from "sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useFileUpload, type UploadedAsset } from "@/hooks/useFileUpload";
 import DrivePickerModal from "@/components/DrivePickerModal";
-import { useProcessingStore } from "@/store/processingStore";
+import WebsiteSettingsModal from "@/components/WebsiteSettingsModal";
+import { useProcessingStore, type WebsiteConfig } from "@/store/processingStore";
 import { DISPLAY_NAME_TO_PLATFORM } from "@/lib/captionPrompts";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -253,6 +254,8 @@ export default function MediaLibrary() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
   const [showDrivePicker, setShowDrivePicker] = useState(false);
+  const [showWebsiteModal, setShowWebsiteModal] = useState(false);
+  const [localWebsiteConfig, setLocalWebsiteConfig] = useState<WebsiteConfig | null>(null);
 
   const navCategory = searchParams.get("nav");
   const navTag = navCategory ? (FOLDER_TO_TAG[navCategory] ?? null) : null;
@@ -262,7 +265,7 @@ export default function MediaLibrary() {
     const platformValues = activePlatforms.map(
       (name) => DISPLAY_NAME_TO_PLATFORM[name] ?? name
     );
-    setProcessingJob(selectedAssets, platformValues);
+    setProcessingJob(selectedAssets, platformValues, localWebsiteConfig);
     navigate("/processing");
   };
 
@@ -298,10 +301,29 @@ export default function MediaLibrary() {
       s.includes(id) ? s.filter((x) => x !== id) : [...s, id]
     );
 
-  const togglePlatform = (name: string) =>
+  const togglePlatform = (name: string) => {
+    if (name === "Website") {
+      if (activePlatforms.includes("Website")) {
+        setActivePlatforms((p) => p.filter((x) => x !== "Website"));
+      } else {
+        setShowWebsiteModal(true);
+      }
+      return;
+    }
     setActivePlatforms((p) =>
       p.includes(name) ? p.filter((x) => x !== name) : [...p, name]
     );
+  };
+
+  const handleWebsiteOk = useCallback((config: WebsiteConfig) => {
+    setLocalWebsiteConfig(config);
+    setActivePlatforms((p) => (p.includes("Website") ? p : [...p, "Website"]));
+    setShowWebsiteModal(false);
+  }, []);
+
+  const handleWebsiteClose = useCallback(() => {
+    setShowWebsiteModal(false);
+  }, []);
 
   const hasSelection = selected.length > 0;
 
@@ -390,6 +412,15 @@ export default function MediaLibrary() {
         <DrivePickerModal
           onFilesSelected={handleDriveFiles}
           onClose={() => setShowDrivePicker(false)}
+        />
+      )}
+
+      {showWebsiteModal && (
+        <WebsiteSettingsModal
+          assets={assets.filter((a) => selected.includes(a.id))}
+          initialConfig={localWebsiteConfig}
+          onOk={handleWebsiteOk}
+          onClose={handleWebsiteClose}
         />
       )}
 

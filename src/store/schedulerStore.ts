@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { type UploadedAsset } from '@/hooks/useFileUpload';
+import type { WebsiteConfig } from '@/store/processingStore';
 
 export interface ScheduledAsset {
   asset: UploadedAsset;
   platforms: string[];
   captions: Record<string, string>; // platformId → caption body
+  websiteConfig?: WebsiteConfig;
 }
 
 interface SchedulerStore {
