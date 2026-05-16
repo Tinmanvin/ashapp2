@@ -40,7 +40,7 @@ export async function postScheduledItem(
   const tempR2Keys: string[] = [];
 
   try {
-    const isVideo = item.asset.type === 'VIDEO';
+    const isVideo = item.asset.type === 'VIDEO' || item.asset.type === 'CLIP';
     const hasTelegram = item.platforms.some(p => p.startsWith('telegram'));
     const needsCompression = isVideo && hasTelegram && item.asset.size > TELEGRAM_VIDEO_LIMIT;
 

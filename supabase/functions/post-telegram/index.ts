@@ -27,29 +27,36 @@ serve(async (req) => {
     };
 
     if (!BOT_TOKEN) {
-      return new Response(JSON.stringify({ error: "TELEGRAM_BOT_TOKEN not set" }), {
-        status: 500, headers: { ...CORS, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ success: false, error: "TELEGRAM_BOT_TOKEN not set" }), {
+        status: 200, headers: { ...CORS, "Content-Type": "application/json" },
       });
     }
 
     const chatId = CHANNEL_MAP[platform];
     if (!chatId) {
-      return new Response(JSON.stringify({ error: `Unknown platform: ${platform}` }), {
-        status: 400, headers: { ...CORS, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ success: false, error: `Unknown platform: ${platform}` }), {
+        status: 200, headers: { ...CORS, "Content-Type": "application/json" },
       });
     }
 
     // Fetch the file into memory — bypasses Cloudflare blocking Telegram's IPs
     const fileRes = await fetch(fileUrl);
     if (!fileRes.ok) {
-      return new Response(JSON.stringify({ error: `Failed to fetch file: ${fileRes.status} ${fileRes.statusText}` }), {
-        status: 400, headers: { ...CORS, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ success: false, error: `Failed to fetch file: ${fileRes.status} ${fileRes.statusText}` }), {
+        status: 200, headers: { ...CORS, "Content-Type": "application/json" },
       });
     }
 
     const fileBlob = await fileRes.blob();
-    const contentType = fileBlob.type || (fileType === "video" ? "video/mp4" : "image/jpeg");
-    const filename = fileUrl.split("/").pop() ?? (fileType === "video" ? "video.mp4" : "photo.jpg");
+    // Use the actual content type from the file — don't lie to Telegram about format
+    const contentType = fileType === "video"
+      ? (fileBlob.type || "video/mp4")
+      : (fileBlob.type || "image/jpeg");
+    // Keep original filename and extension so Telegram gets the real format
+    const rawName = fileUrl.split("/").pop()?.split("?")[0] ?? "";
+    const filename = fileType === "video"
+      ? (rawName || "video.mp4")
+      : (rawName || "photo.jpg");
 
     const method   = fileType === "video" ? "sendVideo" : "sendPhoto";
     const mediaKey = fileType === "video" ? "video" : "photo";
@@ -82,8 +89,8 @@ serve(async (req) => {
 
   } catch (err) {
     console.error("[post-telegram] Unexpected error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500, headers: { ...CORS, "Content-Type": "application/json" },
+    return new Response(JSON.stringify({ success: false, error: String(err) }), {
+      status: 200, headers: { ...CORS, "Content-Type": "application/json" },
     });
   }
 });

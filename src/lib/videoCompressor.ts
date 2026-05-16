@@ -58,9 +58,10 @@ export async function compressVideoForTelegram(
     await ff.writeFile('input.mp4', inputData);
 
     // CRF 28 + 4 Mbps cap: typically compresses a 100 MB clip to 15–35 MB.
-    // We don't bother scaling resolution — Telegram re-compresses everything anyway.
+    // map_metadata 0 preserves rotation tags so portrait videos stay portrait.
     await ff.exec([
       '-i', 'input.mp4',
+      '-map_metadata', '0',
       '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
