@@ -7,6 +7,7 @@ import {
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
 import { PLATFORM_META } from "@/lib/captionPrompts";
 import { postScheduledItems, type PostStage } from "@/lib/telegramPoster";
+import { scheduleBackgroundCompression } from "@/lib/backgroundCompressor";
 import { supabase } from "@/lib/supabase";
 import TimePickerModal from "@/components/TimePickerModal";
 
@@ -232,7 +233,7 @@ export default function Scheduler() {
   const {
     approvedQueue, scheduled,
     scheduleItem, unscheduleItem, deleteConfirmedItem,
-    confirmSchedule, loadConfirmedSchedule,
+    confirmSchedule, loadConfirmedSchedule, clearApprovedQueue,
   } = useSchedulerStore();
 
   const today = new Date();
@@ -313,10 +314,14 @@ export default function Scheduler() {
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function toggleSelect(id: string) {
+  function queueKey(item: { asset: { id: string }; platforms: string[] }) {
+    return `${item.asset.id}:${[...item.platforms].sort().join(',')}`;
+  }
+
+  function toggleSelect(key: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   }
@@ -333,7 +338,7 @@ export default function Scheduler() {
 
   async function handlePostNow() {
     if (selectedIds.size === 0 || postStage !== null) return;
-    const toPost = approvedQueue.filter((item) => selectedIds.has(item.asset.id));
+    const toPost = approvedQueue.filter((item) => selectedIds.has(queueKey(item)));
     try {
       const results = await postScheduledItems(toPost, postCallbacks);
       const failed  = results.filter((r) => !r.ok);
@@ -383,13 +388,24 @@ export default function Scheduler() {
         }))
       );
 
-      const { error } = await supabase.from("scheduled_posts").insert(rows);
+      const { data: insertedRows, error } = await supabase
+        .from("scheduled_posts")
+        .insert(rows)
+        .select("id, asset_id, platform");
       if (error) {
         alert(`Failed to save schedule: ${error.message}`);
         return;
       }
 
       confirmSchedule(newItems.map(({ item }) => item.asset.id));
+
+      // Silently pre-compress videos/images in the background so they're ready at post time
+      if (insertedRows?.length) {
+        scheduleBackgroundCompression(
+          newItems.map(({ item }) => item),
+          insertedRows,
+        );
+      }
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -397,34 +413,25 @@ export default function Scheduler() {
     }
   }
 
-  function handleExportToSheets() {
-    const allItems = Object.entries(scheduled).flatMap(([date, items]) =>
-      items.flatMap((item) =>
-        item.platforms.map((platform) => ({
-          date,
-          time: item.scheduledAt
-            ? new Date(item.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-            : "",
-          asset: item.asset.name,
-          platform,
-          caption: item.captions[platform] ?? "",
-          status: item.dbStatus ?? (item.confirmed ? "pending" : "draft"),
-        }))
-      )
-    );
-    if (!allItems.length) return;
-    const header = ["Date", "Time", "Asset", "Platform", "Caption", "Status"].join(",");
-    const rows   = allItems.map((r) =>
-      [r.date, r.time, r.asset, r.platform, `"${r.caption.replace(/"/g, '""')}"`, r.status].join(",")
-    );
-    const csv  = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = `schedule-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  async function handleExportToSheets() {
+    toast.loading('Exporting to Master Content Library…', { id: 'export' });
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-to-sheets`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? 'Export failed');
+      toast.success(`Exported ${result.pushed} assets to Google Sheets`, { id: 'export' });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Export failed', { id: 'export' });
+    }
   }
 
   async function handleDeleteConfirmed(dateKey: string, assetId: string) {
@@ -499,12 +506,12 @@ export default function Scheduler() {
           ) : (
             approvedQueue.map((item) => (
               <QueueCard
-                key={item.asset.id}
+                key={queueKey(item)}
                 item={item}
                 onDragStart={() => { dragging.current = item; }}
                 selectionMode={selectionMode}
-                selected={selectedIds.has(item.asset.id)}
-                onToggle={() => toggleSelect(item.asset.id)}
+                selected={selectedIds.has(queueKey(item))}
+                onToggle={() => toggleSelect(queueKey(item))}
               />
             ))
           )}
@@ -554,13 +561,22 @@ export default function Scheduler() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={enterSelectionMode}
-                disabled={approvedQueue.length === 0}
-                className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium disabled:opacity-30 disabled:cursor-not-allowed"
-              >
-                Test Post
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={clearApprovedQueue}
+                  disabled={approvedQueue.length === 0}
+                  className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={enterSelectionMode}
+                  disabled={approvedQueue.length === 0}
+                  className="rounded-full glass-button px-3 py-1.5 text-micro text-muted-foreground font-medium disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  Post Now
+                </button>
+              </div>
             )}
           </div>
         </div>
