@@ -19,6 +19,7 @@ export interface UploadedAsset {
   uploadedAt: string;
   uploadProgress?: number;      // 0-100 during large file uploads
   episodeTag: string | null;    // content category (Episode, Clip, BTS, etc.)
+  tags: string[];               // content pillars array
 }
 
 // ── Thumbnail helpers ─────────────────────────────────────────────────────────
@@ -112,6 +113,7 @@ function dbAssetToUi(asset: Asset): UploadedAsset {
     status: asset.status,
     uploadedAt: asset.uploaded_at,
     episodeTag: asset.episode_tag ?? null,
+    tags: asset.tags ?? [],
   };
 }
 
@@ -324,6 +326,18 @@ export function useFileUpload() {
       .eq('id', id);
   }, []);
 
+  // ── Update tags ────────────────────────────────────────────────────────────
+  const updateTags = useCallback(async (id: string, tag: string | null) => {
+    const newTags = tag ? [tag] : [];
+    setAssets((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, tags: newTags } : a))
+    );
+    await supabase
+      .from('assets')
+      .update({ tags: newTags })
+      .eq('id', id);
+  }, []);
+
   // ── Remove single asset ────────────────────────────────────────────────────
   const removeAsset = useCallback(async (id: string) => {
     setAssets((prev) => prev.filter((a) => a.id !== id));
@@ -373,5 +387,5 @@ export function useFileUpload() {
     }
   }, []);
 
-  return { assets, isLoading, isProcessing, processFiles, removeAsset, removeAssets, updateEpisodeTag };
+  return { assets, isLoading, isProcessing, processFiles, removeAsset, removeAssets, updateEpisodeTag, updateTags };
 }
