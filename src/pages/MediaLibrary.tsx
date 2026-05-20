@@ -31,6 +31,11 @@ const filters = ["All", "Images", "Videos", "Unscheduled"];
 
 const CATEGORIES = ["Episode", "Clip", "Photo", "Trailer", "Teaser", "BTS"];
 
+const CONTENT_PILLARS = [
+  "Party", "Travel", "Adventure", "BTS", "Lifestyle",
+  "Funny", "Explicit", "Romance", "Community", "Education", "Fitness",
+];
+
 const FOLDER_TO_TAG: Record<string, string> = {
   Episodes: "Episode",
   Clips: "Clip",
@@ -55,30 +60,36 @@ const ACCEPTED_ATTR = "image/*,video/*";
 function TagDropdown({
   dropRef,
   pos,
+  items,
   currentTag,
   onSelect,
   showClear,
   clearLabel,
+  activeColor = "text-accent-violet",
+  width = "w-28",
 }: {
   dropRef: React.RefObject<HTMLDivElement | null>;
   pos: { top: number; right: number };
+  items: string[];
   currentTag: string | null;
   onSelect: (e: React.MouseEvent, value: string | null) => void;
   showClear: boolean;
   clearLabel: string;
+  activeColor?: string;
+  width?: string;
 }) {
   return createPortal(
     <div
       ref={dropRef}
       style={{ position: "fixed", top: pos.top, right: pos.right, zIndex: 9999 }}
-      className="w-28 rounded-lg border border-white/10 bg-[#1a1a2e]/95 backdrop-blur-md shadow-xl overflow-hidden"
+      className={`${width} rounded-lg border border-white/10 bg-[#1a1a2e]/95 backdrop-blur-md shadow-xl overflow-hidden`}
     >
-      {CATEGORIES.map((cat) => (
+      {items.map((cat) => (
         <button
           key={cat}
           onClick={(e) => onSelect(e, cat)}
           className={`w-full text-left px-3 py-1.5 text-micro font-satoshi transition-colors hover:bg-white/[0.06] ${
-            currentTag === cat ? "text-accent-violet" : "text-muted-foreground hover:text-foreground"
+            currentTag === cat ? activeColor : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {cat}
@@ -164,6 +175,7 @@ function CategoryPill({
         <TagDropdown
           dropRef={dropRef}
           pos={dropPos}
+          items={CATEGORIES}
           currentTag={tag}
           onSelect={select}
           showClear={!!tag}
@@ -232,10 +244,87 @@ function BulkTagPill({
         <TagDropdown
           dropRef={dropRef}
           pos={dropPos}
+          items={CATEGORIES}
           currentTag={null}
           onSelect={select}
           showClear
           clearLabel="Clear all"
+        />
+      )}
+    </>
+  );
+}
+
+// ── Content Pillar Pill ───────────────────────────────────────────────────────
+
+function ContentPillarPill({
+  assetId,
+  pillar,
+  onUpdate,
+}: {
+  assetId: string;
+  pillar: string | null;
+  onUpdate: (id: string, tag: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        btnRef.current?.contains(e.target as Node) ||
+        dropRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    setOpen((v) => !v);
+  };
+
+  const select = (e: React.MouseEvent, value: string | null) => {
+    e.stopPropagation();
+    onUpdate(assetId, value);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleToggle}
+        className={`flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border ${
+          pillar
+            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-400"
+            : "bg-black/40 border-white/10 text-muted-foreground hover:text-foreground"
+        }`}
+      >
+        <span>{pillar ?? "Pillar"}</span>
+        <ChevronDown className={`h-2.5 w-2.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && dropPos && (
+        <TagDropdown
+          dropRef={dropRef}
+          pos={dropPos}
+          items={CONTENT_PILLARS}
+          currentTag={pillar}
+          onSelect={select}
+          showClear={!!pillar}
+          clearLabel="Clear"
+          activeColor="text-emerald-400"
+          width="w-32"
         />
       )}
     </>
@@ -272,7 +361,7 @@ export default function MediaLibrary() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
-  const { assets, isProcessing, processFiles, removeAssets, updateEpisodeTag } = useFileUpload();
+  const { assets, isProcessing, processFiles, removeAssets, updateEpisodeTag, updateTags } = useFileUpload();
 
   // ── Filtered assets ────────────────────────────────────────────────────────
 
@@ -645,12 +734,17 @@ export default function MediaLibrary() {
                         </div>
                       </motion.div>
 
-                      {/* Category pill — top-right, outside overflow-hidden so dropdown is unclipped */}
-                      <div className="absolute top-2 right-2 z-20">
+                      {/* Tag pills — top-right, outside overflow-hidden so dropdowns are unclipped */}
+                      <div className="absolute top-2 right-2 z-20 flex flex-col items-end gap-1">
                         <CategoryPill
                           assetId={asset.id}
                           tag={asset.episodeTag}
                           onUpdate={updateEpisodeTag}
+                        />
+                        <ContentPillarPill
+                          assetId={asset.id}
+                          pillar={asset.tags[0] ?? null}
+                          onUpdate={updateTags}
                         />
                       </div>
                     </div>
