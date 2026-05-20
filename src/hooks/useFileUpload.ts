@@ -221,6 +221,7 @@ export function useFileUpload() {
         uploadedAt: new Date().toISOString(),
         uploadProgress: 0,
         episodeTag: null,
+        tags: [],
       };
       setAssets((prev) => [optimisticAsset, ...prev]);
 
