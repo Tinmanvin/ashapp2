@@ -13,7 +13,14 @@ export async function postToWebsite(item: ScheduledAsset): Promise<PostResult> {
   const tags       = cfg?.tags ?? [];
   const thumbnailUrl = cfg?.thumbnailUrl || item.asset.previewUrl || '';
 
-  const caption = item.captions['website'] ?? '';
+  // Fetch fresh from Supabase — queue item captions can be stale
+  const { data: captionRow } = await supabase
+    .from('captions')
+    .select('body')
+    .eq('asset_id', item.asset.id)
+    .eq('platform', 'website')
+    .maybeSingle();
+  const caption = captionRow?.body || item.captions['website'] || '';
 
   const { data, error } = await supabase.functions.invoke('post-website', {
     body: { fileUrl: item.asset.fileUrl, title, externalId, categories, tags, thumbnailUrl, caption },
