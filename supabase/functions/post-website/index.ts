@@ -12,13 +12,14 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { fileUrl, title, externalId, categories, tags, thumbnailUrl } = await req.json() as {
+    const { fileUrl, title, externalId, categories, tags, thumbnailUrl, caption } = await req.json() as {
       fileUrl:      string;
       title:        string;
       externalId:   string;
       categories?:  string[];
       tags?:        string[];
       thumbnailUrl?: string;
+      caption?:     string;
     };
 
     if (!API_KEY) {
@@ -34,7 +35,7 @@ serve(async (req) => {
 
     const payload = {
       title,
-      description:     "",
+      description:     caption ?? "",
       scheduled_at:    null,
       tags:            tags ?? [],
       category,
