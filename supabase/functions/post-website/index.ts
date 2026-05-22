@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -28,14 +29,32 @@ serve(async (req) => {
       });
     }
 
+    // Use caption from frontend if provided, otherwise fetch from DB.
+    // externalId format: "contenthub-{uuid}-{timestamp}" — UUID is always 36 chars.
+    let description = caption || "";
+    if (!description && externalId) {
+      const assetId = externalId.replace(/^contenthub-/, "").slice(0, 36);
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const { data } = await supabase
+        .from("captions")
+        .select("body")
+        .eq("asset_id", assetId)
+        .eq("platform", "website")
+        .maybeSingle();
+      description = data?.body || "";
+      console.log("[post-website] fetched caption from DB for asset:", assetId, "→", description ? "found" : "empty");
+    }
+
     const cats = categories ?? [];
-    // API accepts a single category string
     const category = cats[0] ?? "";
     const playbackPolicy = category === "Free" ? "signed" : "drm";
 
     const payload = {
       title,
-      description:     caption ?? "",
+      description,
       scheduled_at:    null,
       tags:            tags ?? [],
       category,
@@ -70,8 +89,6 @@ serve(async (req) => {
 
     const { content_id, upload_url } = metaData;
 
-    // upload_url is null when external_id was already registered (idempotent response)
-    // In that case the video is already on the platform — treat as success
     if (!upload_url) {
       return new Response(
         JSON.stringify({ success: true, content_id, already_registered: true }),
