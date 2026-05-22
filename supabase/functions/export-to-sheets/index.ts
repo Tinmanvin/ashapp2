@@ -276,14 +276,22 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 6. Append all new rows — start range at A2 (skip header) + OVERWRITE mode
-  // so the API finds the last actual data row and writes immediately below it,
-  // ignoring the empty formatted rows that INSERT_ROWS would skip past.
-  const range = encodeURIComponent(`${SHEET_NAME}!A2:Z`)
+  // 6. Find the first empty slot in column A (rows 2-1000) so we always write
+  // immediately after the last real data row, ignoring empty formatted rows below.
+  const colARes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(`${SHEET_NAME}!A2:A1000`)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+  const colAData = await colARes.json()
+  const colAValues: string[][] = colAData.values ?? []
+  // Trailing empty rows are trimmed by the API, so length = count of data rows
+  const nextRow = colAValues.length + 2 // +2: row 1 is header, array is 0-indexed
+
+  const writeRange = encodeURIComponent(`${SHEET_NAME}!A${nextRow}`)
   const sheetsRes = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=OVERWRITE`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${writeRange}?valueInputOption=USER_ENTERED`,
     {
-      method: 'POST',
+      method: 'PUT',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
