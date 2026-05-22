@@ -41,9 +41,7 @@ serve(async (req) => {
     .update({ status: "posting" })
     .in("id", duePosts.map((p: { id: string }) => p.id));
 
-  const results: Array<{ id: string; platform: string; ok: boolean; error?: string }> = [];
-
-  for (const post of duePosts) {
+  const postOne = async (post: typeof duePosts[number]) => {
     try {
       let result: { data: { success: boolean; error?: string } | null; error: { message: string } | null };
 
@@ -74,6 +72,7 @@ serve(async (req) => {
             categories: wc.categories ?? [],
             tags: wc.tags ?? [],
             thumbnailUrl: wc.thumbnailUrl || post.asset_preview_url || "",
+            caption: post.caption ?? "",
           },
         });
       } else {
@@ -81,8 +80,7 @@ serve(async (req) => {
           .from("scheduled_posts")
           .update({ status: "failed", error: `Unknown platform: ${post.platform}` })
           .eq("id", post.id);
-        results.push({ id: post.id, platform: post.platform, ok: false, error: "Unknown platform" });
-        continue;
+        return { id: post.id, platform: post.platform, ok: false, error: "Unknown platform" };
       }
 
       const ok = !result.error && result.data?.success === true;
@@ -98,7 +96,7 @@ serve(async (req) => {
         })
         .eq("id", post.id);
 
-      results.push({ id: post.id, platform: post.platform, ok, error: errorMsg });
+      return { id: post.id, platform: post.platform, ok, error: errorMsg };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error(`[run-scheduled] Error posting ${post.id}:`, msg);
@@ -106,9 +104,12 @@ serve(async (req) => {
         .from("scheduled_posts")
         .update({ status: "failed", error: msg })
         .eq("id", post.id);
-      results.push({ id: post.id, platform: post.platform, ok: false, error: msg });
+      return { id: post.id, platform: post.platform, ok: false, error: msg };
     }
-  }
+  };
+
+  const settled = await Promise.allSettled(duePosts.map(postOne));
+  const results = settled.flatMap((r) => r.status === "fulfilled" ? [r.value] : []);
 
   console.log(`[run-scheduled] Processed ${results.length} posts`);
   return new Response(
