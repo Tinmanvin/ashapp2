@@ -406,7 +406,7 @@ function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: str
 export default function PreviewView() {
   const navigate = useNavigate();
   const { selectedAssets, selectedPlatforms, websiteConfig } = useProcessingStore();
-  const { setApprovedQueue } = useSchedulerStore();
+  const { mergeApprovedQueue } = useSchedulerStore();
 
   // Derive which tabs are active based on selectedPlatforms
   const selectedTabNames = new Set(
@@ -648,7 +648,7 @@ export default function PreviewView() {
                 ),
                 ...(websiteConfig ? { websiteConfig } : {}),
               }));
-              setApprovedQueue(queue);
+              mergeApprovedQueue(queue);
               navigate("/scheduler");
             }}
             className="rounded-full glass-accent px-5 py-2.5 text-body font-medium text-white transition-all flex items-center gap-2"

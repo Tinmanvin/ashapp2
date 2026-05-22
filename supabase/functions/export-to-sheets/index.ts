@@ -1,26 +1,20 @@
 /**
- * export-to-sheets — Pushes all assets from Supabase to the
- * "Master Content Library" Google Sheet using a service account.
+ * export-to-sheets — Pushes newly scheduled/posted content to the
+ * "Master Content Library" Google Sheet. Never creates duplicates.
  *
- * ONE-TIME SETUP (takes ~5 minutes):
- * ─────────────────────────────────
- * 1. Go to https://console.cloud.google.com
- * 2. Create a new project (or reuse an existing one)
- * 3. Enable the Google Sheets API:
- *    APIs & Services → Library → search "Google Sheets API" → Enable
- * 4. Create a service account:
- *    APIs & Services → Credentials → Create Credentials → Service Account
- *    Name it anything (e.g. "ash-sheets-writer"), skip role assignment, click Done
- * 5. Create a JSON key for the service account:
- *    Click the service account → Keys tab → Add Key → Create new key → JSON
- *    Download the key file (e.g. key.json)
- * 6. Share the Google Sheet with the service account email
- *    (it's in the JSON as "client_email", looks like xxx@project.iam.gserviceaccount.com)
- *    Open the sheet → Share → paste the email → set to Editor → Send
- * 7. Store the key as a Supabase secret (run from terminal):
- *    supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON="$(cat key.json)" --project-ref fchdjysbvmucbfxcpcst
- * 8. Deploy this function:
- *    supabase functions deploy export-to-sheets --no-verify-jwt --project-ref fchdjysbvmucbfxcpcst
+ * Logic:
+ *  - Finds assets that have at least one scheduled_post (pending/posting/posted)
+ *    AND have never been exported (exported_to_sheet_at IS NULL)
+ *  - Builds one row per asset, aggregating all its platform posts
+ *  - Appends those rows to the sheet in one batch call
+ *  - Marks each exported asset with exported_to_sheet_at = now()
+ *
+ * ONE-TIME SETUP:
+ *  1. Google Cloud Console → enable Google Sheets API
+ *  2. Create service account → download JSON key
+ *  3. Share the sheet with the service account email (Editor)
+ *  4. supabase secrets set GOOGLE_SERVICE_ACCOUNT_JSON="$(cat key.json)" --project-ref fchdjysbvmucbfxcpcst
+ *  5. supabase functions deploy export-to-sheets --no-verify-jwt --project-ref fchdjysbvmucbfxcpcst
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -87,15 +81,12 @@ function pemToBytes(pem: string): Uint8Array {
 
 function base64url(buf: ArrayBuffer): string {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
+    .replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
 }
 
 async function getAccessToken(serviceAccountJson: string): Promise<string> {
   const sa = JSON.parse(serviceAccountJson)
   const now = Math.floor(Date.now() / 1000)
-
   const header = { alg: 'RS256', typ: 'JWT' }
   const payload = {
     iss: sa.client_email,
@@ -104,11 +95,9 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
     exp: now + 3600,
     iat: now,
   }
-
   const encHeader = base64url(new TextEncoder().encode(JSON.stringify(header)))
   const encPayload = base64url(new TextEncoder().encode(JSON.stringify(payload)))
   const signingInput = `${encHeader}.${encPayload}`
-
   const privateKey = await crypto.subtle.importKey(
     'pkcs8',
     pemToBytes(sa.private_key),
@@ -116,26 +105,18 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
     false,
     ['sign']
   )
-
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     privateKey,
     new TextEncoder().encode(signingInput)
   )
-
   const jwt = `${signingInput}.${base64url(signature)}`
-
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
   })
-
-  if (!tokenRes.ok) {
-    const err = await tokenRes.text()
-    throw new Error(`Token exchange failed: ${err}`)
-  }
-
+  if (!tokenRes.ok) throw new Error(`Token exchange failed: ${await tokenRes.text()}`)
   const { access_token } = await tokenRes.json()
   return access_token
 }
@@ -148,14 +129,12 @@ const CORS = {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
   if (!saJson) {
     return new Response(
-      JSON.stringify({ error: 'GOOGLE_SERVICE_ACCOUNT_JSON secret not set. See setup instructions in the function source.' }),
+      JSON.stringify({ error: 'GOOGLE_SERVICE_ACCOUNT_JSON not set. See setup instructions in function source.' }),
       { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   }
@@ -165,98 +144,128 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  // 1. Fetch all assets
-  const { data: assets, error: assetsError } = await supabase
-    .from('assets')
-    .select('id, filename, file_url, type, status, episode_tag, tags, uploaded_at')
-    .order('uploaded_at', { ascending: false })
+  // 1. Find asset_ids that have scheduled posts (non-failed) but haven't been exported yet
+  const { data: posts, error: postsError } = await supabase
+    .from('scheduled_posts')
+    .select('asset_id, platform, caption, scheduled_at, posted_at, status')
+    .in('status', ['pending', 'posting', 'posted'])
 
-  if (assetsError || !assets) {
+  if (postsError) {
     return new Response(
-      JSON.stringify({ error: assetsError?.message ?? 'No assets found' }),
+      JSON.stringify({ error: postsError.message }),
       { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   }
 
-  const assetIds = assets.map((a: any) => a.id)
+  if (!posts?.length) {
+    return new Response(
+      JSON.stringify({ pushed: 0, message: 'No scheduled posts to export' }),
+      { headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  }
 
-  // 2. Fetch captions + scheduled posts in parallel
-  const [captionsRes, postsRes] = await Promise.all([
-    supabase
-      .from('captions')
-      .select('asset_id, platform, body, status')
-      .in('asset_id', assetIds),
-    supabase
-      .from('scheduled_posts')
-      .select('asset_id, platform, scheduled_at, posted_at, status')
-      .in('asset_id', assetIds),
-  ])
+  // Group posts by asset_id
+  const postsByAsset: Record<string, any[]> = {}
+  for (const p of posts) {
+    if (!postsByAsset[p.asset_id]) postsByAsset[p.asset_id] = []
+    postsByAsset[p.asset_id].push(p)
+  }
+  const allAssetIds = Object.keys(postsByAsset)
 
-  // Index by asset_id
+  // 2. Fetch only assets that haven't been exported yet
+  const { data: assets, error: assetsError } = await supabase
+    .from('assets')
+    .select('id, filename, file_url, type, status, episode_tag, tags, exported_to_sheet_at')
+    .in('id', allAssetIds)
+    .is('exported_to_sheet_at', null)
+
+  if (assetsError) {
+    return new Response(
+      JSON.stringify({ error: assetsError.message }),
+      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  if (!assets?.length) {
+    return new Response(
+      JSON.stringify({ pushed: 0, message: 'All scheduled posts already exported' }),
+      { headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  }
+
+  // 3. Fetch approved captions for these assets
+  const { data: captions } = await supabase
+    .from('captions')
+    .select('asset_id, platform, body, status')
+    .in('asset_id', assets.map((a: any) => a.id))
+
   const captionsByAsset: Record<string, any[]> = {}
-  for (const c of captionsRes.data ?? []) {
+  for (const c of captions ?? []) {
     if (!captionsByAsset[c.asset_id]) captionsByAsset[c.asset_id] = []
     captionsByAsset[c.asset_id].push(c)
   }
 
-  const postsByAsset: Record<string, any[]> = {}
-  for (const p of postsRes.data ?? []) {
-    if (!postsByAsset[p.asset_id]) postsByAsset[p.asset_id] = []
-    postsByAsset[p.asset_id].push(p)
-  }
-
-  // 3. Build rows — one per asset, 26 columns matching Master Content Library
+  // 4. Build one row per asset
   const rows: string[][] = assets.map((asset: any) => {
-    const caps = captionsByAsset[asset.id] ?? []
-    const posts = postsByAsset[asset.id] ?? []
+    const assetPosts = postsByAsset[asset.id] ?? []
+    const assetCaps = captionsByAsset[asset.id] ?? []
 
-    const xCaption = caps.find((c: any) => c.platform === 'x')
-    const description = xCaption?.body ?? caps[0]?.body ?? ''
-    const approvalStatus = caps.some((c: any) => c.status === 'approved') ? 'Approved' : 'Pending'
+    // Caption: prefer X, then Telegram, then first available
+    const caption =
+      assetPosts.find((p: any) => p.platform === 'x')?.caption ??
+      assetCaps.find((c: any) => c.platform === 'x')?.body ??
+      assetPosts[0]?.caption ?? ''
 
-    const sorted = [...posts].sort(
+    const approvalStatus = assetCaps.some((c: any) => c.status === 'approved') ? 'Approved' : 'Pending'
+
+    // Sort posts by scheduled_at to find first/last
+    const sorted = [...assetPosts].sort(
       (a: any, b: any) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
     )
     const firstPost = sorted[0]
-    const lastPosted = posts.reduce((latest: any, p: any) => {
+    const lastPosted = assetPosts.reduce((latest: any, p: any) => {
       if (!latest) return p
-      return new Date(p.posted_at ?? p.scheduled_at) > new Date(latest.posted_at ?? latest.scheduled_at)
-        ? p : latest
+      const latestTime = new Date(latest.posted_at ?? latest.scheduled_at).getTime()
+      const thisTime = new Date(p.posted_at ?? p.scheduled_at).getTime()
+      return thisTime > latestTime ? p : latest
     }, null as any)
 
     const primaryPlatform = firstPost?.platform ?? ''
+    const allPlatforms = [...new Set(assetPosts.map((p: any) => p.platform))].join(', ')
+    const isPosted = assetPosts.some((p: any) => p.status === 'posted')
+    const sheetStatus = isPosted ? 'Posted' : 'Scheduled'
 
     return [
-      asset.id,                                                      // Content ID
-      asset.episode_tag ?? '',                                       // Project / Episode Name
-      PLATFORM_TO_SERIES[primaryPlatform] ?? '',                    // Series
-      EPISODE_TAG_TO_CONTENT_TYPE[asset.episode_tag ?? ''] ?? '',   // Content Type
-      stripExt(asset.filename),                                      // Title
-      description,                                                   // Description
-      '',                                                            // Shoot Date
-      '',                                                            // Location
-      '',                                                            // Talent
-      PLATFORM_TO_FUNNEL[primaryPlatform] ?? '',                    // Funnel Stage
-      '',                                                            // Monetisation Role
-      ASSET_STATUS_MAP[asset.status] ?? asset.status,               // Status
-      '',                                                            // Editor
-      asset.file_url ?? '',                                          // File Link
-      'Done',                                                        // Thumbnail Status
-      'Written',                                                     // Caption Status
-      approvalStatus,                                                // Approval Status
-      ['scheduled', 'published'].includes(asset.status) ? 'Yes' : 'No', // Ready to Post
-      'Yes',                                                         // Evergreen
-      formatDate(firstPost?.scheduled_at),                           // First Post Date
-      formatDate(lastPosted?.posted_at),                             // Last Post Date
-      '',                                                            // Performance Score
-      '',                                                            // Notes
-      primaryPlatform,                                               // Platform First Posted
-      '',                                                            // Content Value
-      '',                                                            // Repurpose After (Days)
+      asset.id,                                                     // Content ID
+      asset.episode_tag ?? '',                                      // Project / Episode Name
+      PLATFORM_TO_SERIES[primaryPlatform] ?? '',                   // Series
+      EPISODE_TAG_TO_CONTENT_TYPE[asset.episode_tag ?? ''] ?? '',  // Content Type
+      stripExt(asset.filename),                                     // Title
+      caption,                                                      // Description
+      '',                                                           // Shoot Date
+      '',                                                           // Location
+      '',                                                           // Talent
+      PLATFORM_TO_FUNNEL[primaryPlatform] ?? '',                   // Funnel Stage
+      '',                                                           // Monetisation Role
+      sheetStatus,                                                  // Status
+      '',                                                           // Editor
+      asset.file_url ?? '',                                         // File Link
+      'Done',                                                       // Thumbnail Status
+      'Written',                                                    // Caption Status
+      approvalStatus,                                               // Approval Status
+      isPosted ? 'Yes' : 'No',                                     // Ready to Post
+      'Yes',                                                        // Evergreen
+      formatDate(firstPost?.scheduled_at),                          // First Post Date
+      formatDate(lastPosted?.posted_at),                            // Last Post Date
+      '',                                                           // Performance Score
+      '',                                                           // Notes
+      allPlatforms,                                                 // Platform First Posted
+      '',                                                           // Content Value
+      '',                                                           // Repurpose After (Days)
     ]
   })
 
-  // 4. Get Google access token
+  // 5. Get Google access token
   let accessToken: string
   try {
     accessToken = await getAccessToken(saJson)
@@ -267,7 +276,7 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 5. Append all rows in one batch call
+  // 6. Append all new rows to the sheet in a single batch call
   const range = encodeURIComponent(`${SHEET_NAME}!A:Z`)
   const sheetsRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
@@ -288,6 +297,13 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   }
+
+  // 7. Mark these assets as exported — prevents future duplicates
+  const exportedIds = assets.map((a: any) => a.id)
+  await supabase
+    .from('assets')
+    .update({ exported_to_sheet_at: new Date().toISOString() })
+    .in('id', exportedIds)
 
   const result = await sheetsRes.json()
   const pushed = result.updates?.updatedRows ?? rows.length

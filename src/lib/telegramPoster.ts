@@ -112,17 +112,17 @@ export async function postScheduledItem(
 }
 
 /**
- * Post multiple scheduled assets in sequence.
+ * Post multiple scheduled assets concurrently.
  * Returns all results aggregated.
  */
 export async function postScheduledItems(
   items: ScheduledAsset[],
   callbacks: PostItemCallbacks,
 ): Promise<PostResult[]> {
-  const allResults: PostResult[] = [];
-  for (const item of items) {
-    const results = await postScheduledItem(item, callbacks);
-    allResults.push(...results);
-  }
-  return allResults;
+  const settled = await Promise.allSettled(
+    items.map((item) => postScheduledItem(item, callbacks))
+  );
+  return settled.flatMap((r) =>
+    r.status === 'fulfilled' ? r.value : []
+  );
 }

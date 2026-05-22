@@ -18,6 +18,8 @@ interface SchedulerStore {
   scheduled: Record<string, ScheduledAsset[]>; // "YYYY-MM-DD" → items
 
   setApprovedQueue:      (items: ScheduledAsset[]) => void;
+  mergeApprovedQueue:    (items: ScheduledAsset[]) => void;
+  clearApprovedQueue:    () => void;
   scheduleItem:          (dateKey: string, item: ScheduledAsset) => void;
   unscheduleItem:        (dateKey: string, assetId: string) => void;
   deleteConfirmedItem:   (dateKey: string, assetId: string) => void;
@@ -32,6 +34,19 @@ export const useSchedulerStore = create<SchedulerStore>()(
       scheduled: {},
 
       setApprovedQueue: (items) => set({ approvedQueue: items }),
+
+      mergeApprovedQueue: (items) =>
+        set((s) => {
+          const existingKeys = new Set(
+            s.approvedQueue.map((i) => `${i.asset.id}:${[...i.platforms].sort().join(',')}`)
+          );
+          const newItems = items.filter(
+            (i) => !existingKeys.has(`${i.asset.id}:${[...i.platforms].sort().join(',')}`)
+          );
+          return { approvedQueue: [...s.approvedQueue, ...newItems] };
+        }),
+
+      clearApprovedQueue: () => set({ approvedQueue: [] }),
 
       scheduleItem: (dateKey, item) =>
         set((s) => ({

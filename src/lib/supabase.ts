@@ -30,4 +30,5 @@ export interface Asset {
   status: AssetStatus;
   uploaded_at: string;
   updated_at: string;
+  exported_to_sheet_at: string | null;
 }

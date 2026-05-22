@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronRight, Sparkles, GripVertical,
   X, CheckCircle2, Circle, FileSpreadsheet, Send,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
 import { PLATFORM_META } from "@/lib/captionPrompts";
 import { postScheduledItems, type PostStage } from "@/lib/telegramPoster";
@@ -243,11 +244,33 @@ export default function Scheduler() {
   const [pendingDrop, setPendingDrop] = useState<{ dateKey: string; item: ScheduledAsset } | null>(null);
   const dragging = useRef<ScheduledAsset | null>(null);
 
+  // Export state
+  const [unexportedCount, setUnexportedCount] = useState(0);
+
   // Shared posting state
   const [selectionMode, setSelectionMode]   = useState(false);
   const [selectedIds, setSelectedIds]       = useState<Set<string>>(new Set());
   const [postStage, setPostStage]           = useState<PostStage>(null);
   const [compressionPct, setCompressionPct] = useState(0);
+
+  const loadUnexportedCount = useCallback(async () => {
+    const { data: posts } = await supabase
+      .from("scheduled_posts")
+      .select("asset_id")
+      .in("status", ["pending", "posting", "posted"]);
+
+    if (!posts?.length) { setUnexportedCount(0); return; }
+
+    const assetIds = [...new Set(posts.map((p) => p.asset_id as string))];
+
+    const { count } = await supabase
+      .from("assets")
+      .select("id", { count: "exact", head: true })
+      .in("id", assetIds)
+      .is("exported_to_sheet_at", null);
+
+    setUnexportedCount(count ?? 0);
+  }, []);
 
   const postCallbacks = {
     onStageChange: (stage: PostStage) => {
@@ -257,8 +280,9 @@ export default function Scheduler() {
     onCompressionProgress: setCompressionPct,
   };
 
-  // Load confirmed items from Supabase on mount
+  // Load confirmed items + unexported count from Supabase on mount
   useEffect(() => {
+    loadUnexportedCount();
     supabase
       .from("scheduled_posts")
       .select("*")
@@ -406,6 +430,9 @@ export default function Scheduler() {
           insertedRows,
         );
       }
+
+      // Refresh count — newly scheduled items are now exportable
+      loadUnexportedCount();
     } catch (err) {
       alert(`Error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -414,23 +441,25 @@ export default function Scheduler() {
   }
 
   async function handleExportToSheets() {
-    toast.loading('Exporting to Master Content Library…', { id: 'export' });
+    if (unexportedCount === 0) return;
+    toast.loading("Exporting to Master Content Library…", { id: "export" });
     try {
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-to-sheets`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
         }
       );
       const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? 'Export failed');
-      toast.success(`Exported ${result.pushed} assets to Google Sheets`, { id: 'export' });
+      if (!res.ok) throw new Error(result.error ?? "Export failed");
+      toast.success(`Exported ${result.pushed} item${result.pushed === 1 ? "" : "s"} to Google Sheets`, { id: "export" });
+      setUnexportedCount(0);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Export failed', { id: 'export' });
+      toast.error(err instanceof Error ? err.message : "Export failed", { id: "export" });
     }
   }
 
@@ -657,10 +686,20 @@ export default function Scheduler() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleExportToSheets}
-              disabled={totalPosts === 0}
-              className="rounded-full glass-button px-4 py-2 text-body text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 transition-colors"
+              disabled={unexportedCount === 0}
+              className={`rounded-full px-4 py-2 text-body font-medium flex items-center gap-2 transition-all ${
+                unexportedCount > 0
+                  ? "bg-emerald-700 hover:bg-emerald-600 text-white"
+                  : "glass-button text-muted-foreground opacity-30 cursor-not-allowed"
+              }`}
             >
-              <FileSpreadsheet className="h-3.5 w-3.5" /> Export to Sheets
+              <FileSpreadsheet className="h-3.5 w-3.5" />
+              Export to Sheets
+              {unexportedCount > 0 && (
+                <span className="rounded-full bg-white/25 px-1.5 py-0.5 text-micro font-mono leading-none">
+                  {unexportedCount}
+                </span>
+              )}
             </button>
             <button
               onClick={handlePublishOnSchedule}
