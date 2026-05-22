@@ -48,6 +48,9 @@ serve(async (req) => {
       console.log("[post-website] fetched caption from DB for asset:", assetId, "→", description ? "found" : "empty");
     }
 
+    // Convert newlines to <br> so line breaks render on the website
+    description = description.replace(/\n/g, "<br>");
+
     const cats = categories ?? [];
     const category = cats[0] ?? "";
     const playbackPolicy = category === "Free" ? "signed" : "drm";
