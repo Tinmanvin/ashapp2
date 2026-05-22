@@ -28,10 +28,11 @@ const platformTabs = [
   { name: "Website",  color: "border-platform-website",  bg: "bg-platform-website/10"  },
 ];
 
-const TAB_TO_PLATFORM_ID: Record<string, string> = {
-  X:        "x",
-  Telegram: "telegram_free",
-  Website:  "website",
+// All three Telegram variants map to the Telegram tab
+const TAB_TO_PLATFORM_IDS: Record<string, string[]> = {
+  X:        ["x"],
+  Telegram: ["telegram_free", "telegram_free_vip", "telegram_vip"],
+  Website:  ["website"],
 };
 
 const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
@@ -412,8 +413,7 @@ export default function PreviewView() {
   const selectedTabNames = new Set(
     platformTabs
       .filter((p) => {
-        if (p.name === "Telegram") return selectedPlatforms.some((sp) => sp.startsWith("telegram"));
-        return selectedPlatforms.includes(TAB_TO_PLATFORM_ID[p.name]);
+        return selectedPlatforms.some((sp) => TAB_TO_PLATFORM_IDS[p.name]?.includes(sp));
       })
       .map((p) => p.name)
   );
@@ -442,7 +442,7 @@ export default function PreviewView() {
         data.forEach((r) => { map[`${r.asset_id}:${r.platform}`] = r.body; });
         setCaptions(map);
       });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedAssets]); // refetch whenever asset selection changes
 
   // Hotkeys: 'A' → approve + next | ←/→ → asset nav | ↑/↓ → platform tab
   useEffect(() => {
@@ -492,8 +492,10 @@ export default function PreviewView() {
     }
   }
 
-  const platformId     = TAB_TO_PLATFORM_ID[activePlatform] ?? "x";
-  const captionKey     = currentAsset ? `${currentAsset.id}:${platformId}` : "";
+  const platformIds    = TAB_TO_PLATFORM_IDS[activePlatform] ?? ["x"];
+  const captionKey     = currentAsset
+    ? (platformIds.map((id) => `${currentAsset.id}:${id}`).find((k) => captions[k]) ?? `${currentAsset.id}:${platformIds[0]}`)
+    : "";
   const currentCaption = captions[captionKey] ?? "";
 
   // Center area background per platform
