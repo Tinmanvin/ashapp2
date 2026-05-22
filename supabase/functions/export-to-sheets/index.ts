@@ -276,10 +276,12 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 6. Append all new rows to the sheet in a single batch call
-  const range = encodeURIComponent(`${SHEET_NAME}!A:Z`)
+  // 6. Append all new rows — start range at A2 (skip header) + OVERWRITE mode
+  // so the API finds the last actual data row and writes immediately below it,
+  // ignoring the empty formatted rows that INSERT_ROWS would skip past.
+  const range = encodeURIComponent(`${SHEET_NAME}!A2:Z`)
   const sheetsRes = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=OVERWRITE`,
     {
       method: 'POST',
       headers: {
