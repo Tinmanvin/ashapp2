@@ -16,6 +16,7 @@ import {
   Star,
   Camera,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -93,6 +94,22 @@ export default function AppLayout() {
 
   const { clear: clearPipeline, selectedAssets } = useProcessingStore();
   const pipelineCount = selectedAssets.length;
+
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
+  }, []);
+
+  const displayName = userEmail ? userEmail.split("@")[0] : "—";
+  const initials = displayName.slice(0, 1).toUpperCase();
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   const isLibrary = location.pathname === "/library";
 
@@ -214,13 +231,20 @@ export default function AppLayout() {
             <span className="font-satoshi">Settings</span>
           </NavLink>
           <div className="mt-3 flex items-center gap-2.5 px-3">
-            <div className="h-7 w-7 rounded-full bg-accent-violet/20 flex items-center justify-center">
-              <span className="text-micro font-bold text-accent-violet">A</span>
+            <div className="h-7 w-7 rounded-full bg-accent-violet/20 flex items-center justify-center shrink-0">
+              <span className="text-micro font-bold text-accent-violet">{initials}</span>
             </div>
-            <div className="flex flex-col">
-              <span className="text-body font-medium text-foreground">Ash</span>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-body font-medium text-foreground truncate">{displayName}</span>
               <span className="text-micro text-muted-foreground">Creator</span>
             </div>
+            <button
+              onClick={handleSignOut}
+              title="Sign out"
+              className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-elevated hover:text-foreground"
+            >
+              <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       </motion.aside>
