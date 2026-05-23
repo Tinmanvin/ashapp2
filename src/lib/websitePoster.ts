@@ -11,7 +11,20 @@ export async function postToWebsite(item: ScheduledAsset): Promise<PostResult> {
   const externalId = `contenthub-${item.asset.id}-${Date.now()}`;
   const categories = cfg?.categories ?? [];
   const tags       = cfg?.tags ?? [];
-  const thumbnailUrl = cfg?.thumbnailUrl || item.asset.previewUrl || '';
+  // Scheduler items snapshot the asset at queue time, so previewUrl may be a
+  // data: URL (optimistic thumbnail) if the user queued the asset before the
+  // R2 upload finished. Always resolve to an https:// URL — fall back to a
+  // fresh DB read if neither the config nor the snapshot is a public URL.
+  const snapshotUrl = [cfg?.thumbnailUrl, item.asset.previewUrl].find(u => u?.startsWith('https://'));
+  let thumbnailUrl = snapshotUrl ?? '';
+  if (!thumbnailUrl) {
+    const { data: assetRow } = await supabase
+      .from('assets')
+      .select('thumbnail_url')
+      .eq('id', item.asset.id)
+      .maybeSingle();
+    thumbnailUrl = assetRow?.thumbnail_url ?? '';
+  }
 
   // Fetch fresh from Supabase — queue item captions can be stale
   const { data: captionRow } = await supabase
