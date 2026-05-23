@@ -909,9 +909,11 @@ export default function MediaLibrary() {
                   <p className="mt-3 text-micro text-muted-foreground/60 font-satoshi">
                     Censoring rules applied automatically per platform
                   </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <BulkTagPill selectedIds={selected} onUpdate={updateEpisodeTag} />
-                    <BulkPillarPill selectedIds={selected} onUpdate={updateTags} />
+                  <div className="mt-3 flex items-start gap-2">
+                    <div className="flex flex-col gap-1">
+                      <BulkTagPill selectedIds={selected} onUpdate={updateEpisodeTag} />
+                      <BulkPillarPill selectedIds={selected} onUpdate={updateTags} />
+                    </div>
                     <button
                       onClick={selectAll}
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-black/40 border-white/10 text-muted-foreground hover:text-foreground"
