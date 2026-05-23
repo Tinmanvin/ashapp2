@@ -255,6 +255,76 @@ function BulkTagPill({
   );
 }
 
+// ── Bulk Pillar Pill ──────────────────────────────────────────────────────────
+
+function BulkPillarPill({
+  selectedIds,
+  onUpdate,
+}: {
+  selectedIds: string[];
+  onUpdate: (id: string, tag: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropPos, setDropPos] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        btnRef.current?.contains(e.target as Node) ||
+        dropRef.current?.contains(e.target as Node)
+      ) return;
+      setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const handleToggle = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+    }
+    setOpen((v) => !v);
+  };
+
+  const select = (e: React.MouseEvent, value: string | null) => {
+    e.stopPropagation();
+    selectedIds.forEach((id) => onUpdate(id, value));
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        onClick={handleToggle}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
+      >
+        <span>Pillar all</span>
+        <ChevronDown className={`h-2.5 w-2.5 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && dropPos && (
+        <TagDropdown
+          dropRef={dropRef}
+          pos={dropPos}
+          items={CONTENT_PILLARS}
+          currentTag={null}
+          onSelect={select}
+          showClear
+          clearLabel="Clear all"
+          activeColor="text-emerald-400"
+          width="w-32"
+        />
+      )}
+    </>
+  );
+}
+
 // ── Content Pillar Pill ───────────────────────────────────────────────────────
 
 function ContentPillarPill({
@@ -841,6 +911,7 @@ export default function MediaLibrary() {
                   </p>
                   <div className="mt-3 flex items-center gap-2">
                     <BulkTagPill selectedIds={selected} onUpdate={updateEpisodeTag} />
+                    <BulkPillarPill selectedIds={selected} onUpdate={updateTags} />
                     <button
                       onClick={selectAll}
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-micro font-satoshi font-medium transition-all backdrop-blur-sm border bg-black/40 border-white/10 text-muted-foreground hover:text-foreground"
