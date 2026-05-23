@@ -99,19 +99,24 @@ serve(async (req) => {
       );
     }
 
-    // Step 2: fetch the file and PUT it to the upload_url
+    // Step 2: stream the file directly from R2 to the upload_url.
+    // Never buffer into memory — large videos (30min+) would exceed the
+    // edge function RAM limit and crash with status 546.
     const fileRes = await fetch(fileUrl);
     if (!fileRes.ok) {
       throw new Error(`Failed to fetch file: ${fileRes.status} ${fileRes.statusText}`);
     }
 
-    const fileBytes   = await fileRes.arrayBuffer();
-    const contentType = fileRes.headers.get("content-type") ?? "video/mp4";
+    const contentType   = fileRes.headers.get("content-type") ?? "video/mp4";
+    const contentLength = fileRes.headers.get("content-length");
 
     const uploadRes = await fetch(upload_url, {
       method:  "PUT",
-      headers: { "Content-Type": contentType },
-      body:    fileBytes,
+      headers: {
+        "Content-Type": contentType,
+        ...(contentLength ? { "Content-Length": contentLength } : {}),
+      },
+      body: fileRes.body,
     });
 
     if (!uploadRes.ok) {
