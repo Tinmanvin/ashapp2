@@ -351,13 +351,13 @@ export function useFileUpload() {
       .single();
 
     if (row) {
-      const r2Ready = isR2Configured();
-      if (r2Ready) {
-        if (row.storage_key) deleteFromR2(row.storage_key).catch(() => {});
-        if (row.thumb_key) deleteFromR2(row.thumb_key).catch(() => {});
-      } else {
-        if (row.storage_key) supabase.storage.from('assets').remove([row.storage_key]).catch(() => {});
-        if (row.thumb_key) supabase.storage.from('assets').remove([row.thumb_key]).catch(() => {});
+      const keys = [row.storage_key, row.thumb_key].filter(Boolean) as string[];
+      if (keys.length) {
+        // Always attempt both — file may be in R2, Supabase Storage, or both
+        if (isR2Configured()) {
+          keys.forEach((k) => deleteFromR2(k).catch(() => {}));
+        }
+        supabase.storage.from('assets').remove(keys).catch(() => {});
       }
     }
   }, []);
@@ -375,15 +375,16 @@ export function useFileUpload() {
       .select('storage_key, thumb_key');
 
     if (rows?.length) {
-      const r2Ready = isR2Configured();
-      for (const row of rows) {
-        if (r2Ready) {
-          if (row.storage_key) deleteFromR2(row.storage_key).catch(() => {});
-          if (row.thumb_key) deleteFromR2(row.thumb_key).catch(() => {});
-        } else {
-          if (row.storage_key) supabase.storage.from('assets').remove([row.storage_key]).catch(() => {});
-          if (row.thumb_key) supabase.storage.from('assets').remove([row.thumb_key]).catch(() => {});
+      const keys = rows
+        .flatMap((r) => [r.storage_key, r.thumb_key])
+        .filter(Boolean) as string[];
+      if (keys.length) {
+        // Always attempt both — files may be in R2, Supabase Storage, or both
+        if (isR2Configured()) {
+          keys.forEach((k) => deleteFromR2(k).catch(() => {}));
         }
+        // Supabase remove supports batches of up to 1000 keys
+        supabase.storage.from('assets').remove(keys).catch(() => {});
       }
     }
   }, []);
