@@ -63,10 +63,32 @@ serve(async (req) => {
           },
         });
       } else if (post.platform === "website") {
+        // Check for an active or completed compression job for this asset
+        const { data: compJob } = await supabase
+          .from("compression_jobs")
+          .select("status, compressed_url")
+          .eq("asset_id", post.asset_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        // Compression still in flight — defer this post until it finishes
+        if (compJob && (compJob.status === "queued" || compJob.status === "running")) {
+          await supabase
+            .from("scheduled_posts")
+            .update({ status: "pending" })
+            .eq("id", post.id);
+          console.log(`[run-scheduled] Deferring website post ${post.id} — compression still ${compJob.status}`);
+          return { id: post.id, platform: post.platform, ok: true };
+        }
+
+        // Use the compressed file if available, otherwise fall back to original
+        const fileUrl = compJob?.compressed_url || post.file_url;
+
         const wc = post.website_config ?? {};
         result = await supabase.functions.invoke("post-website", {
           body: {
-            fileUrl: post.file_url,
+            fileUrl,
             title: wc.title || post.asset_name,
             externalId: post.asset_id,
             categories: wc.categories ?? [],

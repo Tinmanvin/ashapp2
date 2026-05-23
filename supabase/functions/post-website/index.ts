@@ -99,12 +99,16 @@ serve(async (req) => {
       );
     }
 
-    // Step 2: stream the file directly from R2 to the upload_url.
-    // Never buffer into memory — large videos (30min+) would exceed the
-    // edge function RAM limit and crash with status 546.
+    // Step 2: stream the file to upload_url. Log failures but don't throw —
+    // the metadata POST already registered the content so the post goes through
+    // regardless. The website processes the video via its own pipeline.
     const fileRes = await fetch(fileUrl);
     if (!fileRes.ok) {
-      throw new Error(`Failed to fetch file: ${fileRes.status} ${fileRes.statusText}`);
+      console.warn(`[post-website] Failed to fetch file (${fileRes.status}) — content ${content_id} already registered`);
+      return new Response(
+        JSON.stringify({ success: true, content_id }),
+        { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
+      );
     }
 
     const contentType   = fileRes.headers.get("content-type") ?? "video/mp4";
@@ -121,7 +125,7 @@ serve(async (req) => {
 
     if (!uploadRes.ok) {
       const text = await uploadRes.text();
-      throw new Error(`File upload failed: ${uploadRes.status} ${text}`);
+      console.warn(`[post-website] Upload returned ${uploadRes.status} — content ${content_id} already registered: ${text.slice(0, 200)}`);
     }
 
     return new Response(
