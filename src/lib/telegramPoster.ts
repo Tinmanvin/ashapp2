@@ -77,7 +77,7 @@ export async function postScheduledItem(
       }
 
       if (platform === 'website') {
-        results.push(await postToWebsite(item));
+        results.push(await postToWebsite(item, callbacks));
         continue;
       }
 

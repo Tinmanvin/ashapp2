@@ -1,10 +1,18 @@
 import { supabase } from '@/lib/supabase';
 import type { ScheduledAsset } from '@/store/schedulerStore';
-import type { PostResult } from '@/lib/telegramPoster';
+import type { PostResult, PostItemCallbacks } from '@/lib/telegramPoster';
+import {
+  WEBSITE_VIDEO_LIMIT,
+  triggerWebsiteCompression,
+  waitForWebsiteCompression,
+} from '@/lib/websiteCompressor';
 
 export type { PostResult };
 
-export async function postToWebsite(item: ScheduledAsset): Promise<PostResult> {
+export async function postToWebsite(
+  item: ScheduledAsset,
+  callbacks?: PostItemCallbacks,
+): Promise<PostResult> {
   const cfg = item.websiteConfig;
 
   const title      = (cfg?.title?.trim() || item.asset.name).replace(/\.[^/.]+$/, '');
@@ -35,8 +43,19 @@ export async function postToWebsite(item: ScheduledAsset): Promise<PostResult> {
     .maybeSingle();
   const caption = captionRow?.body || item.captions['website'] || '';
 
+  // Compress large videos server-side before posting (Cloudflare upload limit ~100 MB)
+  const isVideo = item.asset.type === 'VIDEO' || item.asset.type === 'CLIP';
+  let fileUrl = item.asset.fileUrl;
+  if (isVideo && item.asset.size > WEBSITE_VIDEO_LIMIT && callbacks) {
+    callbacks.onStageChange('compressing');
+    callbacks.onCompressionProgress(0);
+    const jobId = await triggerWebsiteCompression(fileUrl, item.asset.id);
+    fileUrl = await waitForWebsiteCompression(jobId, callbacks.onCompressionProgress);
+    callbacks.onStageChange('posting');
+  }
+
   const { data, error } = await supabase.functions.invoke('post-website', {
-    body: { fileUrl: item.asset.fileUrl, title, externalId, categories, tags, thumbnailUrl, caption },
+    body: { fileUrl, title, externalId, categories, tags, thumbnailUrl, caption },
   });
 
   const ok       = !error && data?.success === true;

@@ -6,6 +6,7 @@ import {
   TELEGRAM_VIDEO_LIMIT,
   X_IMAGE_LIMIT,
 } from '@/lib/videoCompressor';
+import { WEBSITE_VIDEO_LIMIT, triggerWebsiteCompression } from '@/lib/websiteCompressor';
 import type { ScheduledAsset } from '@/store/schedulerStore';
 
 interface InsertedRow {
@@ -76,6 +77,17 @@ async function compressItem(
       }
     } catch (err) {
       console.error(`[backgroundCompressor] Telegram video compression error:`, err);
+    }
+  }
+
+  // ── Website: compress video over 90 MB server-side via Trigger.dev ──────────
+  const hasWebsite = item.platforms.includes('website');
+  if (isVideo && hasWebsite && item.asset.size > WEBSITE_VIDEO_LIMIT) {
+    const rowIds = platformRows.get('website') ?? [];
+    if (rowIds.length > 0) {
+      triggerWebsiteCompression(item.asset.fileUrl, item.asset.id, rowIds).catch((err) => {
+        console.error(`[backgroundCompressor] Website compression trigger failed:`, err);
+      });
     }
   }
 

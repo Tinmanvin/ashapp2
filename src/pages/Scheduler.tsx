@@ -554,7 +554,9 @@ export default function Scheduler() {
                   ? `Compressing… ${compressionPct}%`
                   : postStage === "uploading"
                   ? "Uploading compressed…"
-                  : "Posting…"}
+                  : postStage === "posting"
+                  ? "Posting…"
+                  : "Working…"}
               </span>
               {postStage === "compressing" && (
                 <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
