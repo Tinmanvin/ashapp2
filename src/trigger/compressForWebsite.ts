@@ -29,19 +29,26 @@ export const compressForWebsite = task({
 
     const tmpDir = `/tmp/compress-${jobId}`;
     await fs.mkdir(tmpDir, { recursive: true });
+    const inputPath = path.join(tmpDir, "input.mp4");
     const outputPath = path.join(tmpDir, "output.mp4");
 
     try {
+      // Download to /tmp first so FFmpeg works on a local file (no moov-atom seek issue)
+      await downloadFile(fileUrl, inputPath, async (pct) => {
+        const mapped = Math.round(pct * 25); // 0–25%
+        await updateJob({ progress: mapped });
+      });
+
       // Get video duration so we can calculate target bitrate + track progress
-      const duration = await getVideoDuration(fileUrl);
-      await updateJob({ progress: 5 });
+      const duration = await getVideoDuration(inputPath);
+      await updateJob({ progress: 28 });
 
       // Target 85 MB: calculate the bitrate needed to hit that size
       const targetBitrateKbps = calcTargetBitrate(duration);
 
-      // Compress — streams from URL directly, writes output file only
-      await runFFmpeg(fileUrl, outputPath, duration, targetBitrateKbps, async (pct) => {
-        const mapped = 5 + Math.round(pct * 80); // maps 0-100% → 5-85%
+      // Compress from local file
+      await runFFmpeg(inputPath, outputPath, duration, targetBitrateKbps, async (pct) => {
+        const mapped = 28 + Math.round(pct * 57); // 28–85%
         await updateJob({ progress: mapped });
       });
 
@@ -72,6 +79,39 @@ export const compressForWebsite = task({
     }
   },
 });
+
+async function downloadFile(
+  url: string,
+  dest: string,
+  onProgress: (pct: number) => Promise<void>,
+): Promise<void> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Download failed (${res.status}): ${url}`);
+
+  const total = Number(res.headers.get("content-length") ?? 0);
+  const writer = await fs.open(dest, "w");
+  let downloaded = 0;
+  let lastPct = -1;
+
+  try {
+    const reader = res.body!.getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      await writer.write(value);
+      downloaded += value.length;
+      if (total > 0) {
+        const pct = Math.round((downloaded / total) * 100);
+        if (pct > lastPct) {
+          lastPct = pct;
+          await onProgress(pct / 100);
+        }
+      }
+    }
+  } finally {
+    await writer.close();
+  }
+}
 
 // Target 85 MB output. Subtract 128 kbps for audio. Clamp 200–2500 kbps.
 function calcTargetBitrate(durationSeconds: number): number {

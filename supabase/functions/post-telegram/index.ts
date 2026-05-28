@@ -19,11 +19,14 @@ serve(async (req) => {
   }
 
   try {
-    const { platform, fileUrl, fileType, caption } = await req.json() as {
+    const { platform, fileUrl, fileType, caption, width, height, duration } = await req.json() as {
       platform: string;
       fileUrl: string;
       fileType: "image" | "video";
       caption: string;
+      width?: number;
+      height?: number;
+      duration?: number;
     };
 
     if (!BOT_TOKEN) {
@@ -65,7 +68,17 @@ serve(async (req) => {
     form.append("chat_id", chatId);
     form.append(mediaKey, new File([fileBlob], filename, { type: contentType }));
     if (caption) form.append("caption", caption);
-    if (fileType === "video") form.append("supports_streaming", "true");
+    if (fileType === "video") {
+      form.append("supports_streaming", "true");
+      // Explicit dimensions stop Telegram mobile from using container dimensions
+      // (e.g. 1920x1080 for an iPhone portrait stored as landscape+rotation),
+      // which is what causes portrait videos to render stretched on mobile.
+      if (width && height) {
+        form.append("width", String(width));
+        form.append("height", String(height));
+      }
+      if (duration) form.append("duration", String(duration));
+    }
 
     const tgRes = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,

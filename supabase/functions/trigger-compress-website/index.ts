@@ -50,13 +50,13 @@ serve(async (req) => {
       },
     );
 
+    const triggerBody = await triggerRes.text();
     if (!triggerRes.ok) {
-      const errText = await triggerRes.text();
-      await supabase.from("compression_jobs").update({ status: "failed", error: errText }).eq("id", jobId);
-      throw new Error(`Trigger.dev API failed (${triggerRes.status}): ${errText}`);
+      await supabase.from("compression_jobs").update({ status: "failed", error: triggerBody }).eq("id", jobId);
+      throw new Error(`Trigger.dev API failed (${triggerRes.status}): ${triggerBody}`);
     }
 
-    console.log(`[trigger-compress-website] Enqueued job ${jobId} for asset ${assetId}`);
+    console.log(`[trigger-compress-website] Enqueued job ${jobId} for asset ${assetId}`, triggerBody);
 
     return new Response(JSON.stringify({ jobId }), {
       status: 200,

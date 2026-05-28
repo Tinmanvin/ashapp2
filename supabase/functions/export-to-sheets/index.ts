@@ -35,16 +35,14 @@ const EPISODE_TAG_TO_CONTENT_TYPE: Record<string, string> = {
 
 const PLATFORM_TO_FUNNEL: Record<string, string> = {
   x: 'Traffic',
-  telegram_free: 'Free VIP',
-  telegram_free_vip: 'Free VIP',
-  telegram_vip: 'Paid VIP',
+  telegram_free: 'BMM Updates',
+  telegram_vip: 'BMM VIP Zone',
   website: 'Website',
 }
 
 const PLATFORM_TO_SERIES: Record<string, string> = {
   x: 'Traffic Content',
-  telegram_free: 'Free VIP',
-  telegram_free_vip: 'Free VIP',
+  telegram_free: 'BMM Updates',
   telegram_vip: 'VIP Lounge',
   website: 'Website Vault',
 }

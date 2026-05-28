@@ -9,6 +9,7 @@
 import { supabase } from '@/lib/supabase';
 import { uploadToR2, deleteFromR2, isR2Configured } from '@/lib/r2';
 import { compressVideoForTelegram } from '@/lib/videoCompressor';
+import { probeVideoDimensions, type VideoDimensions } from '@/lib/videoProbe';
 import { postToX } from '@/lib/xPoster';
 import { postToWebsite } from '@/lib/websitePoster';
 import type { ScheduledAsset } from '@/store/schedulerStore';
@@ -28,7 +29,15 @@ export interface PostResult {
 }
 
 async function invokeWithRetry(
-  body: { platform: string; fileUrl: string; fileType: string; caption: string },
+  body: {
+    platform: string;
+    fileUrl: string;
+    fileType: string;
+    caption: string;
+    width?: number;
+    height?: number;
+    duration?: number;
+  },
 ): Promise<{ data: any; error: any }> {
   const first = await supabase.functions.invoke('post-telegram', { body });
   // Retry on SDK error (non-2xx) OR on connection reset returned as success:false in body
@@ -78,6 +87,13 @@ export async function postScheduledItem(
       }
     }
 
+    // Probe video dimensions once per asset — fixes Telegram mobile stretching
+    // portrait iPhone videos by giving sendVideo the true display width/height.
+    let videoDims: VideoDimensions | null = null;
+    if (isVideo) {
+      videoDims = await probeVideoDimensions(fileUrl);
+    }
+
     onStageChange('posting');
 
     for (const platform of item.platforms) {
@@ -95,7 +111,13 @@ export async function postScheduledItem(
       const caption = item.captions[platform] ?? '';
       const fileType = isVideo ? 'video' : 'image';
 
-      const { data, error } = await invokeWithRetry({ platform, fileUrl, fileType, caption });
+      const { data, error } = await invokeWithRetry({
+        platform,
+        fileUrl,
+        fileType,
+        caption,
+        ...(videoDims ? { width: videoDims.width, height: videoDims.height, duration: videoDims.duration } : {}),
+      });
 
       // error = SDK-level failure (non-2xx HTTP status, network error)
       // data.success === false = Telegram rejected the post (we return 200 to keep the body readable)
