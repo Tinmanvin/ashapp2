@@ -28,10 +28,10 @@ const platformTabs = [
   { name: "Website",  color: "border-platform-website",  bg: "bg-platform-website/10"  },
 ];
 
-// All three Telegram variants map to the Telegram tab
+// Both Telegram variants map to the Telegram tab
 const TAB_TO_PLATFORM_IDS: Record<string, string[]> = {
   X:        ["x"],
-  Telegram: ["telegram_free", "telegram_free_vip", "telegram_vip"],
+  Telegram: ["telegram_free", "telegram_vip", "telegram_test"],
   Website:  ["website"],
 };
 

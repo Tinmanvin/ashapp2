@@ -8,9 +8,9 @@ const CORS = {
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
 
 const CHANNEL_MAP: Record<string, string> = {
-  telegram_free:     Deno.env.get("TELEGRAM_FREE_CHANNEL_ID") ?? "",
-  telegram_free_vip: Deno.env.get("TELEGRAM_FREE_VIP_CHANNEL_ID") ?? "",
-  telegram_vip:      Deno.env.get("TELEGRAM_VIP_CHANNEL_ID") ?? "",
+  telegram_free: Deno.env.get("TELEGRAM_FREE_CHANNEL_ID") ?? "",
+  telegram_vip:  Deno.env.get("TELEGRAM_VIP_CHANNEL_ID") ?? "",
+  telegram_test: Deno.env.get("TELEGRAM_TEST_CHANNEL_ID") ?? "",
 };
 
 serve(async (req) => {

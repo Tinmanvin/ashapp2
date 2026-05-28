@@ -28,13 +28,13 @@ const fadeUp = {
 
 // ── Platform config ───────────────────────────────────────────────────────────
 
-const ALL_PLATFORMS = ["x", "website", "telegram_free", "telegram_free_vip", "telegram_vip"] as const;
+const ALL_PLATFORMS = ["x", "website", "telegram_free", "telegram_vip", "telegram_test"] as const;
 
 const PLATFORM_INFO: Record<string, { label: string; colorClass: string; dotColor: string }> = {
   x:                { label: "X",          colorClass: "bg-platform-x/20 text-platform-x",               dotColor: "bg-platform-x" },
-  telegram_free:    { label: "TG Free",    colorClass: "bg-platform-telegram/20 text-platform-telegram",  dotColor: "bg-platform-telegram" },
-  telegram_free_vip:{ label: "TG VIP+",   colorClass: "bg-platform-telegram/20 text-platform-telegram",  dotColor: "bg-platform-telegram" },
-  telegram_vip:     { label: "TG VIP",    colorClass: "bg-platform-telegram/20 text-platform-telegram",  dotColor: "bg-platform-telegram" },
+  telegram_free: { label: "BMM Updates",  colorClass: "bg-platform-telegram/20 text-platform-telegram", dotColor: "bg-platform-telegram" },
+  telegram_vip:  { label: "BMM VIP Zone", colorClass: "bg-blue-600/20 text-blue-400",                    dotColor: "bg-blue-600" },
+  telegram_test: { label: "Tele Test",    colorClass: "bg-blue-400/20 text-blue-400",                    dotColor: "bg-blue-400" },
   website:          { label: "Website",   colorClass: "bg-platform-website/20 text-platform-website",    dotColor: "bg-platform-website" },
 };
 
@@ -237,8 +237,8 @@ export default function Dashboard() {
   const platformBreakdownData = useMemo(() => {
     const telegramCount =
       (postedThisMonth["telegram_free"] ?? 0) +
-      (postedThisMonth["telegram_free_vip"] ?? 0) +
-      (postedThisMonth["telegram_vip"] ?? 0);
+      (postedThisMonth["telegram_vip"] ?? 0) +
+      (postedThisMonth["telegram_test"] ?? 0);
     const xCount       = postedThisMonth["x"] ?? 0;
     const websiteCount = postedThisMonth["website"] ?? 0;
     const maxCount = Math.max(telegramCount, xCount, websiteCount, 1);

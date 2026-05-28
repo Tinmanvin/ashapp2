@@ -17,9 +17,9 @@ import TimePickerModal from "@/components/TimePickerModal";
 const PLATFORM_SHORT: Record<string, { letter: string; bg: string; text: string }> = {
   x:                 { letter: "X", bg: "bg-platform-x",       text: "text-black"  },
   reddit:            { letter: "R", bg: "bg-platform-reddit",  text: "text-white"  },
-  telegram_free:     { letter: "T", bg: "bg-platform-telegram", text: "text-white" },
-  telegram_free_vip: { letter: "F", bg: "bg-cyan-500",          text: "text-white" },
-  telegram_vip:      { letter: "V", bg: "bg-blue-600",          text: "text-white" },
+  telegram_free: { letter: "T", bg: "bg-platform-telegram", text: "text-white" },
+  telegram_vip:  { letter: "V", bg: "bg-blue-600",          text: "text-white" },
+  telegram_test: { letter: "T", bg: "bg-blue-400",          text: "text-white" },
   website:           { letter: "W", bg: "bg-platform-website",  text: "text-white" },
 };
 
