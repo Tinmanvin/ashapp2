@@ -58,8 +58,8 @@ async function compressItem(
   const telegramPlatforms = item.platforms.filter((p) => p.startsWith('telegram'));
   const hasX = item.platforms.includes('x');
 
-  // ── Telegram: process all videos — large get transcoded, small get faststart remux ──
-  if (isVideo && telegramPlatforms.length > 0) {
+  // ── Telegram: compress video over 45 MB ──────────────────────────────────────
+  if (isVideo && telegramPlatforms.length > 0 && item.asset.size > TELEGRAM_VIDEO_LIMIT) {
     const key = `compressed/telegram/${item.asset.id}.mp4`;
     try {
       const compressed = await compressVideoForTelegram(

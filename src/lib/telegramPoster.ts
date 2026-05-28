@@ -8,7 +8,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { uploadToR2, deleteFromR2, isR2Configured } from '@/lib/r2';
-import { compressVideoForTelegram } from '@/lib/videoCompressor';
+import { compressVideoForTelegram, TELEGRAM_VIDEO_LIMIT } from '@/lib/videoCompressor';
 import { postToX } from '@/lib/xPoster';
 import { postToWebsite } from '@/lib/websitePoster';
 import type { ScheduledAsset } from '@/store/schedulerStore';
@@ -52,8 +52,7 @@ export async function postScheduledItem(
   try {
     const isVideo = item.asset.type === 'VIDEO' || item.asset.type === 'CLIP';
     const hasTelegram = item.platforms.some(p => p.startsWith('telegram'));
-    // All Telegram videos must be processed — small videos need faststart remux so they play on Web Desktop
-    const needsCompression = isVideo && hasTelegram;
+    const needsCompression = isVideo && hasTelegram && item.asset.size > TELEGRAM_VIDEO_LIMIT;
 
     let fileUrl = item.asset.fileUrl;
 

@@ -42,7 +42,9 @@ export async function compressVideoForTelegram(
   fileUrl: string,
   fileSizeBytes: number,
   onProgress: (pct: number) => void,
-): Promise<Blob> {
+): Promise<Blob | null> {
+  if (fileSizeBytes <= TELEGRAM_VIDEO_LIMIT) return null;
+
   const ff = await getInstance();
 
   const handleProgress = ({ progress }: { progress: number }) =>
@@ -55,40 +57,27 @@ export async function compressVideoForTelegram(
     const inputData = await fetchFile(fileUrl);
     await ff.writeFile('input.mp4', inputData);
 
-    if (fileSizeBytes > TELEGRAM_VIDEO_LIMIT) {
-      // Large video: full transcode to shrink + add faststart.
-      // CRF 28 + 2.5 Mbps cap: typically compresses a 100 MB clip to 15–35 MB.
-      // -map_metadata -1: strip all metadata including rotation tags — no double-rotation.
-      // -movflags +faststart: moov atom at front for Telegram Web streaming.
-      await ff.exec([
-        '-i', 'input.mp4',
-        '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-crf', '28',
-        '-maxrate', '2500k',
-        '-bufsize', '5000k',
-        '-c:a', 'aac',
-        '-ar', '44100',
-        '-ac', '2',
-        '-b:a', '128k',
-        '-movflags', '+faststart',
-        '-map_metadata', '-1',
-        '-y',
-        'output.mp4',
-      ]);
-    } else {
-      // Small video: fast remux — copy codecs, just move moov atom to front.
-      // No re-encoding, typically finishes in 1–3 seconds.
-      await ff.exec([
-        '-i', 'input.mp4',
-        '-c', 'copy',
-        '-movflags', '+faststart',
-        '-map_metadata', '-1',
-        '-y',
-        'output.mp4',
-      ]);
-    }
+    // Large video: full transcode to shrink + add faststart.
+    // CRF 28 + 2.5 Mbps cap: typically compresses a 100 MB clip to 15–35 MB.
+    // -map_metadata -1: strip all metadata including rotation tags — no double-rotation.
+    // -movflags +faststart: moov atom at front for Telegram Web streaming.
+    await ff.exec([
+      '-i', 'input.mp4',
+      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-crf', '28',
+      '-maxrate', '2500k',
+      '-bufsize', '5000k',
+      '-c:a', 'aac',
+      '-ar', '44100',
+      '-ac', '2',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      '-map_metadata', '-1',
+      '-y',
+      'output.mp4',
+    ]);
 
     const data = await ff.readFile('output.mp4') as Uint8Array;
     return new Blob([data], { type: 'video/mp4' });
