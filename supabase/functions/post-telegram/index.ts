@@ -65,6 +65,7 @@ serve(async (req) => {
     form.append("chat_id", chatId);
     form.append(mediaKey, new File([fileBlob], filename, { type: contentType }));
     if (caption) form.append("caption", caption);
+    if (fileType === "video") form.append("supports_streaming", "true");
 
     const tgRes = await fetch(
       `https://api.telegram.org/bot${BOT_TOKEN}/${method}`,
