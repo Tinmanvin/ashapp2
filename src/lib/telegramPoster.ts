@@ -60,7 +60,7 @@ export async function postScheduledItem(
       onStageChange('compressing');
       onCompressionProgress(0);
 
-      const compressed = await compressVideoForTelegram(
+      const compressed: Blob | null = await compressVideoForTelegram(
         item.asset.fileUrl,
         item.asset.size,
         onCompressionProgress,

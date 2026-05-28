@@ -30,59 +30,48 @@ async function getInstance(): Promise<FFmpeg> {
   return loadPromise;
 }
 
-// Probe the input file and return its rotation angle (0, 90, 180, 270).
-// ffmpeg errors when run with no output — that's expected; we just need the log.
-async function detectRotation(ff: FFmpeg, inputFile: string): Promise<number> {
+// Probe the input file and return codec + rotation.
+async function detectVideoInfo(ff: FFmpeg, inputFile: string): Promise<{ rotation: number; isHevc: boolean }> {
   const lines: string[] = [];
   const handler = ({ message }: { type: string; message: string }) => lines.push(message);
   ff.on('log', handler);
-  try {
-    await ff.exec(['-i', inputFile]);
-  } catch (_) {}
+  try { await ff.exec(['-i', inputFile]); } catch (_) {}
   ff.off('log', handler);
 
   const text = lines.join('\n');
-  const match = text.match(/rotate\s*:\s*(-?\d+)/i);
-  const raw = match ? parseInt(match[1]) : 0;
-  // Normalise to 0-359
-  const rotation = ((raw % 360) + 360) % 360;
-  console.log('[compressor] probe logs:', text.slice(-800));
-  console.log('[compressor] rotation detected:', rotation);
-  return rotation;
+  const rotMatch = text.match(/rotate\s*:\s*(-?\d+)/i);
+  const rotation = rotMatch ? ((parseInt(rotMatch[1]) % 360) + 360) % 360 : 0;
+  const isHevc = /Video:\s*hevc/i.test(text);
+
+  console.log('[compressor] isHevc:', isHevc, 'rotation:', rotation);
+  return { rotation, isHevc };
 }
 
-// Build a vf filter that physically bakes in the rotation so the output
-// has correct portrait/landscape orientation with no metadata rotation tag.
 function buildVfFilter(rotation: number): string {
   const evenScale = 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
-  if (rotation === 90) {
-    // iPhone portrait (top of phone = right of raw frame): rotate 90° CCW to fix
-    return `transpose=2,${evenScale}`;
-  }
-  if (rotation === 270) {
-    // iPhone portrait upside-down: rotate 90° CW to fix
-    return `transpose=1,${evenScale}`;
-  }
-  if (rotation === 180) {
-    return `hflip,vflip,${evenScale}`;
-  }
-  // 0° or unknown — just ensure even dimensions
+  if (rotation === 90)  return `transpose=2,${evenScale}`;  // 90° CCW
+  if (rotation === 270) return `transpose=1,${evenScale}`;  // 90° CW
+  if (rotation === 180) return `hflip,vflip,${evenScale}`;
   return evenScale;
 }
 
 /**
- * Compress a video so it fits under Telegram's 50 MB limit.
- * Always transcodes to H.264 so HEVC iPhone clips play on Telegram Web Desktop.
+ * Compress / transcode a video for Telegram.
+ * Returns null when no processing is needed (H.264 already, under size limit).
+ *
+ * Only transcodes when:
+ *   - Video is HEVC (needs H.264 for Telegram Web Desktop), OR
+ *   - Video is over 45 MB (needs bitrate reduction)
  *
  * @param fileUrl        Public URL of the source video
- * @param fileSizeBytes  Known byte size (used to apply bitrate cap when needed)
+ * @param fileSizeBytes  Known byte size
  * @param onProgress     Called with 0-100 as ffmpeg processes frames
  */
 export async function compressVideoForTelegram(
   fileUrl: string,
   fileSizeBytes: number,
   onProgress: (pct: number) => void,
-): Promise<Blob> {
+): Promise<Blob | null> {
   const ff = await getInstance();
 
   const handleProgress = ({ progress }: { progress: number }) =>
@@ -95,14 +84,20 @@ export async function compressVideoForTelegram(
     const inputData = await fetchFile(fileUrl);
     await ff.writeFile('input.mp4', inputData);
 
-    // Step 1: detect rotation from file metadata
-    const rotation = await detectRotation(ff, 'input.mp4');
+    const { rotation, isHevc } = await detectVideoInfo(ff, 'input.mp4');
+
+    // H.264 under the size limit: already in the right format, send as-is.
+    // Running it through ffmpeg re-encodes unnecessarily and can break orientation.
+    if (!isHevc && fileSizeBytes <= TELEGRAM_VIDEO_LIMIT) {
+      console.log('[compressor] H.264 under limit — skipping transcode');
+      return null;
+    }
+
     const vfFilter = buildVfFilter(rotation);
     console.log('[compressor] vf filter:', vfFilter);
 
-    // Step 2: transcode with explicit rotation baked in.
-    // -noautorotate: we handle rotation ourselves via the vf filter — prevents double rotation.
-    // -metadata:s:v:0 rotate=0: clears the rotate tag so player doesn't try to rotate again.
+    // -noautorotate: we apply rotation explicitly via vf to avoid double-rotation.
+    // -metadata:s:v:0 rotate=0: clear the rotation tag since we've baked it into pixels.
     // -profile:v baseline: required for Telegram Web inline playback.
     // -movflags +faststart: moov atom at front for streaming.
     const args = [
