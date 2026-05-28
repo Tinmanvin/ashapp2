@@ -56,14 +56,17 @@ export async function compressVideoForTelegram(
     await ff.writeFile('input.mp4', inputData);
 
     // All videos: transcode to H.264 so HEVC iPhone clips play on Telegram Web Desktop.
+    // No -vf filter: avoids triggering ffmpeg auto-rotate which bakes rotation into pixels
+    // while rotation metadata is still preserved — double rotation causes stretch on iOS.
+    // -profile:v baseline: required for Telegram Web inline playback (High profile is rejected).
     // -movflags +faststart: moov atom at front for streaming.
     // Rotation metadata is preserved (no -map_metadata -1) so portrait clips display correctly.
     // Large videos (>45 MB) get a bitrate cap to fit under the limit.
     const args = [
       '-i', 'input.mp4',
-      '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
+      '-profile:v', 'baseline',
       '-crf', '28',
       '-pix_fmt', 'yuv420p',
       ...(fileSizeBytes > TELEGRAM_VIDEO_LIMIT ? ['-maxrate', '2500k', '-bufsize', '5000k'] : []),
