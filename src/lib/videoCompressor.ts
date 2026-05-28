@@ -30,12 +30,52 @@ async function getInstance(): Promise<FFmpeg> {
   return loadPromise;
 }
 
+// Probe the input file and return its rotation angle (0, 90, 180, 270).
+// ffmpeg errors when run with no output — that's expected; we just need the log.
+async function detectRotation(ff: FFmpeg, inputFile: string): Promise<number> {
+  const lines: string[] = [];
+  const handler = ({ message }: { type: string; message: string }) => lines.push(message);
+  ff.on('log', handler);
+  try {
+    await ff.exec(['-i', inputFile]);
+  } catch (_) {}
+  ff.off('log', handler);
+
+  const text = lines.join('\n');
+  const match = text.match(/rotate\s*:\s*(-?\d+)/i);
+  const raw = match ? parseInt(match[1]) : 0;
+  // Normalise to 0-359
+  const rotation = ((raw % 360) + 360) % 360;
+  console.log('[compressor] probe logs:', text.slice(-800));
+  console.log('[compressor] rotation detected:', rotation);
+  return rotation;
+}
+
+// Build a vf filter that physically bakes in the rotation so the output
+// has correct portrait/landscape orientation with no metadata rotation tag.
+function buildVfFilter(rotation: number): string {
+  const evenScale = 'scale=trunc(iw/2)*2:trunc(ih/2)*2';
+  if (rotation === 90) {
+    // iPhone portrait (top of phone = right of raw frame): rotate 90° CCW to fix
+    return `transpose=2,${evenScale}`;
+  }
+  if (rotation === 270) {
+    // iPhone portrait upside-down: rotate 90° CW to fix
+    return `transpose=1,${evenScale}`;
+  }
+  if (rotation === 180) {
+    return `hflip,vflip,${evenScale}`;
+  }
+  // 0° or unknown — just ensure even dimensions
+  return evenScale;
+}
+
 /**
  * Compress a video so it fits under Telegram's 50 MB limit.
- * Returns null if the file is already small enough.
+ * Always transcodes to H.264 so HEVC iPhone clips play on Telegram Web Desktop.
  *
  * @param fileUrl        Public URL of the source video
- * @param fileSizeBytes  Known byte size (used to skip compression when unnecessary)
+ * @param fileSizeBytes  Known byte size (used to apply bitrate cap when needed)
  * @param onProgress     Called with 0-100 as ffmpeg processes frames
  */
 export async function compressVideoForTelegram(
@@ -55,14 +95,16 @@ export async function compressVideoForTelegram(
     const inputData = await fetchFile(fileUrl);
     await ff.writeFile('input.mp4', inputData);
 
-    // All videos: transcode to H.264 so HEVC iPhone clips play on Telegram Web Desktop.
-    // -noautorotate: ffmpeg 6.x auto-rotates frames by default (bakes rotation into pixels)
-    // AND preserves the rotation metadata → player rotates again → double rotation = stretched.
-    // -noautorotate disables the physical frame rotation so metadata-only handles display,
-    // identical to how a native Telegram upload behaves. Must come before -i.
-    // -profile:v baseline: required for Telegram Web inline playback (High profile is rejected).
+    // Step 1: detect rotation from file metadata
+    const rotation = await detectRotation(ff, 'input.mp4');
+    const vfFilter = buildVfFilter(rotation);
+    console.log('[compressor] vf filter:', vfFilter);
+
+    // Step 2: transcode with explicit rotation baked in.
+    // -noautorotate: we handle rotation ourselves via the vf filter — prevents double rotation.
+    // -metadata:s:v:0 rotate=0: clears the rotate tag so player doesn't try to rotate again.
+    // -profile:v baseline: required for Telegram Web inline playback.
     // -movflags +faststart: moov atom at front for streaming.
-    // Large videos (>45 MB) get a bitrate cap to fit under the limit.
     const args = [
       '-noautorotate',
       '-i', 'input.mp4',
@@ -70,7 +112,9 @@ export async function compressVideoForTelegram(
       '-preset', 'ultrafast',
       '-profile:v', 'baseline',
       '-crf', '28',
+      '-vf', vfFilter,
       '-pix_fmt', 'yuv420p',
+      '-metadata:s:v:0', 'rotate=0',
       ...(fileSizeBytes > TELEGRAM_VIDEO_LIMIT ? ['-maxrate', '2500k', '-bufsize', '5000k'] : []),
       '-c:a', 'aac',
       '-ar', '44100',
@@ -99,9 +143,6 @@ export async function compressVideoForTelegram(
 /**
  * Compress an image so it fits under X's 5 MB limit.
  * Returns null if the file is already small enough.
- *
- * @param fileUrl        Public URL of the source image
- * @param fileSizeBytes  Known byte size (used to skip when unnecessary)
  */
 export async function compressImageForX(
   fileUrl: string,
@@ -115,10 +156,9 @@ export async function compressImageForX(
     const inputData = await fetchFile(fileUrl);
     await ff.writeFile('input_img', inputData);
 
-    // Re-encode as high-quality JPEG — virtually no visible quality loss
     await ff.exec([
       '-i', 'input_img',
-      '-q:v', '3',   // JPEG quality 1–31, lower = better; 3 ≈ 92% quality
+      '-q:v', '3',
       '-y',
       'output_img.jpg',
     ]);
