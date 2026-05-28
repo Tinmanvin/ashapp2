@@ -48,10 +48,9 @@ serve(async (req) => {
     }
 
     const fileBlob = await fileRes.blob();
-    // Use the actual content type from the file — don't lie to Telegram about format
-    const contentType = fileType === "video"
-      ? (fileBlob.type || "video/mp4")
-      : (fileBlob.type || "image/jpeg");
+    // Always use explicit MIME types — R2 may serve files as application/octet-stream
+    // which causes Telegram to treat videos as documents instead of videos
+    const contentType = fileType === "video" ? "video/mp4" : (fileBlob.type || "image/jpeg");
     // Keep original filename and extension so Telegram gets the real format
     const rawName = fileUrl.split("/").pop()?.split("?")[0] ?? "";
     const filename = fileType === "video"

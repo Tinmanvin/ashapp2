@@ -72,7 +72,6 @@ export async function compressVideoForTelegram(
       '-ac', '2',
       '-b:a', '128k',
       '-movflags', '+faststart',
-      '-map_metadata', '-1',
       '-y',
       'output.mp4',
     ];
@@ -80,6 +79,10 @@ export async function compressVideoForTelegram(
     await ff.exec(args);
 
     const data = await ff.readFile('output.mp4') as Uint8Array;
+    console.log(`[compressor] output size: ${data.byteLength} bytes (input was ${fileSizeBytes} bytes)`);
+    if (data.byteLength < 10000) {
+      throw new Error(`ffmpeg output too small (${data.byteLength} bytes) — transcode likely failed silently`);
+    }
     return new Blob([data], { type: 'video/mp4' });
   } finally {
     ff.off('progress', handleProgress);
