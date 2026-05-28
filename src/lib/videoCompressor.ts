@@ -42,9 +42,7 @@ export async function compressVideoForTelegram(
   fileUrl: string,
   fileSizeBytes: number,
   onProgress: (pct: number) => void,
-): Promise<Blob | null> {
-  if (fileSizeBytes <= TELEGRAM_VIDEO_LIMIT) return null;
-
+): Promise<Blob> {
   const ff = await getInstance();
 
   const handleProgress = ({ progress }: { progress: number }) =>
@@ -57,27 +55,27 @@ export async function compressVideoForTelegram(
     const inputData = await fetchFile(fileUrl);
     await ff.writeFile('input.mp4', inputData);
 
-    // Large video: full transcode to shrink + add faststart.
-    // CRF 28 + 2.5 Mbps cap: typically compresses a 100 MB clip to 15–35 MB.
-    // -map_metadata -1: strip all metadata including rotation tags — no double-rotation.
-    // -movflags +faststart: moov atom at front for Telegram Web streaming.
-    await ff.exec([
+    // All videos: transcode to H.264 so HEVC iPhone clips play on Telegram Web Desktop.
+    // -movflags +faststart: moov atom at front for streaming.
+    // Rotation metadata is preserved (no -map_metadata -1) so portrait clips display correctly.
+    // Large videos (>45 MB) get a bitrate cap to fit under the limit.
+    const args = [
       '-i', 'input.mp4',
       '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
       '-c:v', 'libx264',
       '-preset', 'ultrafast',
       '-crf', '28',
-      '-maxrate', '2500k',
-      '-bufsize', '5000k',
+      ...(fileSizeBytes > TELEGRAM_VIDEO_LIMIT ? ['-maxrate', '2500k', '-bufsize', '5000k'] : []),
       '-c:a', 'aac',
       '-ar', '44100',
       '-ac', '2',
       '-b:a', '128k',
       '-movflags', '+faststart',
-      '-map_metadata', '-1',
       '-y',
       'output.mp4',
-    ]);
+    ];
+
+    await ff.exec(args);
 
     const data = await ff.readFile('output.mp4') as Uint8Array;
     return new Blob([data], { type: 'video/mp4' });
