@@ -8,7 +8,7 @@
 
 import { supabase } from '@/lib/supabase';
 import { uploadToR2, deleteFromR2, isR2Configured } from '@/lib/r2';
-import { compressVideoForTelegram, TELEGRAM_VIDEO_LIMIT } from '@/lib/videoCompressor';
+import { compressVideoForTelegram } from '@/lib/videoCompressor';
 import { postToX } from '@/lib/xPoster';
 import { postToWebsite } from '@/lib/websitePoster';
 import type { ScheduledAsset } from '@/store/schedulerStore';
@@ -27,6 +27,16 @@ export interface PostResult {
   error?: string;
 }
 
+async function invokeWithRetry(
+  body: { platform: string; fileUrl: string; fileType: string; caption: string },
+): Promise<{ data: any; error: any }> {
+  const first = await supabase.functions.invoke('post-telegram', { body });
+  // Retry on SDK error (non-2xx) OR on connection reset returned as success:false in body
+  if (!first.error && first.data?.success === true) return first;
+  await new Promise(r => setTimeout(r, 4000));
+  return supabase.functions.invoke('post-telegram', { body });
+}
+
 /**
  * Post a single scheduled asset to all its Telegram platforms.
  * Handles compression automatically if the video exceeds Telegram's limit.
@@ -42,7 +52,8 @@ export async function postScheduledItem(
   try {
     const isVideo = item.asset.type === 'VIDEO' || item.asset.type === 'CLIP';
     const hasTelegram = item.platforms.some(p => p.startsWith('telegram'));
-    const needsCompression = isVideo && hasTelegram && item.asset.size > TELEGRAM_VIDEO_LIMIT;
+    // All Telegram videos must be processed — small videos need faststart remux so they play on Web Desktop
+    const needsCompression = isVideo && hasTelegram;
 
     let fileUrl = item.asset.fileUrl;
 
@@ -85,9 +96,7 @@ export async function postScheduledItem(
       const caption = item.captions[platform] ?? '';
       const fileType = isVideo ? 'video' : 'image';
 
-      const { data, error } = await supabase.functions.invoke('post-telegram', {
-        body: { platform, fileUrl, fileType, caption },
-      });
+      const { data, error } = await invokeWithRetry({ platform, fileUrl, fileType, caption });
 
       // error = SDK-level failure (non-2xx HTTP status, network error)
       // data.success === false = Telegram rejected the post (we return 200 to keep the body readable)
@@ -112,17 +121,27 @@ export async function postScheduledItem(
 }
 
 /**
- * Post multiple scheduled assets concurrently.
- * Returns all results aggregated.
+ * Post multiple scheduled assets sequentially.
+ * Sequential is required: ffmpeg.wasm is a singleton — concurrent exec() calls
+ * corrupt its internal state and cause silent failures for all but the first video.
  */
 export async function postScheduledItems(
   items: ScheduledAsset[],
   callbacks: PostItemCallbacks,
 ): Promise<PostResult[]> {
-  const settled = await Promise.allSettled(
-    items.map((item) => postScheduledItem(item, callbacks))
-  );
-  return settled.flatMap((r) =>
-    r.status === 'fulfilled' ? r.value : []
-  );
+  const results: PostResult[] = [];
+  for (const item of items) {
+    try {
+      const r = await postScheduledItem(item, callbacks);
+      results.push(...r);
+    } catch (err) {
+      results.push({
+        asset: item.asset.name,
+        platform: item.platforms[0] ?? 'unknown',
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+  return results;
 }
