@@ -37,7 +37,6 @@ function oauthHeader(
     oauth_version:          "1.0",
   };
 
-  // Merge all params, percent-encode, sort, join into parameter string
   const allParams = { ...oauthParams, ...requestParams };
   const paramStr = Object.entries(allParams)
     .map(([k, v]) => [pct(k), pct(v)] as [string, string])
@@ -57,17 +56,8 @@ function oauthHeader(
 
 // ── Twitter media upload steps ────────────────────────────────────────────────
 
-async function mediaInit(
-  totalBytes: number,
-  mediaType: string,
-  mediaCategory: string,
-): Promise<string> {
-  const params = {
-    command:        "INIT",
-    total_bytes:    String(totalBytes),
-    media_type:     mediaType,
-    media_category: mediaCategory,
-  };
+async function mediaInit(totalBytes: number, mediaType: string, mediaCategory: string): Promise<string> {
+  const params = { command: "INIT", total_bytes: String(totalBytes), media_type: mediaType, media_category: mediaCategory };
   const auth = oauthHeader("POST", UPLOAD_URL, params);
   const res  = await fetch(UPLOAD_URL, {
     method:  "POST",
@@ -79,12 +69,7 @@ async function mediaInit(
   return data.media_id_string as string;
 }
 
-async function mediaAppend(
-  mediaId: string,
-  chunk: Uint8Array,
-  segmentIndex: number,
-): Promise<void> {
-  // multipart/form-data — body params NOT included in OAuth signature
+async function mediaAppend(mediaId: string, chunk: Uint8Array, segmentIndex: number): Promise<void> {
   const auth = oauthHeader("POST", UPLOAD_URL);
   const form = new FormData();
   form.append("command",       "APPEND");
@@ -92,11 +77,7 @@ async function mediaAppend(
   form.append("segment_index", String(segmentIndex));
   form.append("media",         new Blob([chunk]), "chunk");
 
-  const res = await fetch(UPLOAD_URL, {
-    method: "POST",
-    headers: { Authorization: auth },
-    body:   form,
-  });
+  const res = await fetch(UPLOAD_URL, { method: "POST", headers: { Authorization: auth }, body: form });
   if (res.status !== 204 && !res.ok) {
     const text = await res.text();
     throw new Error(`APPEND segment ${segmentIndex} failed: ${text}`);
@@ -131,12 +112,38 @@ async function pollMediaStatus(mediaId: string): Promise<void> {
   throw new Error("Media processing timed out");
 }
 
-async function postTweet(text: string, mediaId: string): Promise<unknown> {
+/** Fetch a file from R2/Storage and upload it to X, returning its media_id. */
+async function uploadMedia(fileUrl: string, fileType: "image" | "video"): Promise<string> {
+  const fileRes = await fetch(fileUrl);
+  if (!fileRes.ok) throw new Error(`Failed to fetch file: ${fileRes.status} ${fileRes.statusText}`);
+  const fileBytes  = new Uint8Array(await fileRes.arrayBuffer());
+  const totalBytes = fileBytes.length;
+
+  if (fileType === "image") {
+    const ext       = fileUrl.split(".").pop()?.toLowerCase();
+    const mediaType = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
+    const mediaId = await mediaInit(totalBytes, mediaType, "tweet_image");
+    await mediaAppend(mediaId, fileBytes, 0);
+    await mediaFinalize(mediaId);
+    return mediaId;
+  }
+
+  const mediaId = await mediaInit(totalBytes, "video/mp4", "tweet_video");
+  let segment = 0;
+  for (let offset = 0; offset < totalBytes; offset += CHUNK_SIZE) {
+    await mediaAppend(mediaId, fileBytes.slice(offset, offset + CHUNK_SIZE), segment++);
+  }
+  await mediaFinalize(mediaId);
+  await pollMediaStatus(mediaId);
+  return mediaId;
+}
+
+async function postTweet(text: string, mediaIds: string[]): Promise<unknown> {
   const auth = oauthHeader("POST", TWEET_URL);
   const res  = await fetch(TWEET_URL, {
     method:  "POST",
     headers: { Authorization: auth, "Content-Type": "application/json" },
-    body:    JSON.stringify({ text, media: { media_ids: [mediaId] } }),
+    body:    JSON.stringify({ text, media: { media_ids: mediaIds } }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(`Tweet failed: ${JSON.stringify(data)}`);
@@ -149,11 +156,15 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   try {
-    const { fileUrl, fileType, caption } = await req.json() as {
-      fileUrl:  string;
-      fileType: "image" | "video";
-      caption:  string;
+    const payload = await req.json() as {
+      // Single-post shape (unchanged):
+      fileUrl?:  string;
+      fileType?: "image" | "video";
+      caption:   string;
+      // Group shape (2+ images → one tweet):
+      items?: { fileUrl: string; fileType: "image" | "video" }[];
     };
+    const caption = payload.caption ?? "";
 
     if (!API_KEY || !API_SECRET || !ACCESS_TOKEN || !ACCESS_TOKEN_SECRET) {
       return new Response(JSON.stringify({ error: "X credentials not configured" }), {
@@ -161,35 +172,32 @@ serve(async (req) => {
       });
     }
 
-    const fileRes = await fetch(fileUrl);
-    if (!fileRes.ok) throw new Error(`Failed to fetch file: ${fileRes.status} ${fileRes.statusText}`);
-    const fileBytes  = new Uint8Array(await fileRes.arrayBuffer());
-    const totalBytes = fileBytes.length;
+    // Normalise to a list of media to upload (single = list of one).
+    const items = payload.items?.length
+      ? payload.items
+      : (payload.fileUrl && payload.fileType
+          ? [{ fileUrl: payload.fileUrl, fileType: payload.fileType }]
+          : []);
 
-    let mediaId: string;
+    if (!items.length) throw new Error("No media provided");
 
-    if (fileType === "image") {
-      const ext       = fileUrl.split(".").pop()?.toLowerCase();
-      const mediaType = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
-      mediaId = await mediaInit(totalBytes, mediaType, "tweet_image");
-      await mediaAppend(mediaId, fileBytes, 0);
-      await mediaFinalize(mediaId);
-    } else {
-      mediaId = await mediaInit(totalBytes, "video/mp4", "tweet_video");
-      let segment = 0;
-      for (let offset = 0; offset < totalBytes; offset += CHUNK_SIZE) {
-        await mediaAppend(mediaId, fileBytes.slice(offset, offset + CHUNK_SIZE), segment++);
-      }
-      await mediaFinalize(mediaId);
-      await pollMediaStatus(mediaId);
+    // X allows up to 4 photos, OR exactly 1 video, and cannot mix them.
+    const hasVideo = items.some((i) => i.fileType === "video");
+    if (hasVideo && items.length > 1) {
+      throw new Error("X cannot post multiple media when one is a video");
+    }
+    const mediaItems = items.slice(0, 4); // hard cap — UI blocks >4, this is belt-and-braces
+
+    const mediaIds: string[] = [];
+    for (const it of mediaItems) {
+      mediaIds.push(await uploadMedia(it.fileUrl, it.fileType));
     }
 
-    const tweet = await postTweet(caption, mediaId);
+    const tweet = await postTweet(caption, mediaIds);
 
-    return new Response(
-      JSON.stringify({ success: true, tweet }),
-      { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ success: true, tweet }), {
+      status: 200, headers: { ...CORS, "Content-Type": "application/json" },
+    });
 
   } catch (err) {
     console.error("[post-x] Error:", err);

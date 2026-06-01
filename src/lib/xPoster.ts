@@ -6,30 +6,45 @@ import type { PostResult } from '@/lib/telegramPoster';
 
 export type { PostResult };
 
+/**
+ * Post a group (or single) to X.
+ * - 1 asset  → one photo/video tweet (unchanged behaviour).
+ * - 2+ assets → one multi-image tweet (images only, max 4 — enforced in the UI).
+ */
 export async function postToX(item: ScheduledAsset): Promise<PostResult> {
-  const caption  = item.captions['x'] ?? '';
-  const fileType = item.asset.type === 'VIDEO' ? 'video' : 'image';
-  let fileUrl    = item.asset.fileUrl;
-  let tempR2Key: string | null = null;
+  const caption   = item.captions['x'] ?? '';
+  const assetName = item.assets[0]?.name ?? 'unknown';
+  const tempR2Keys: string[] = [];
 
   try {
-    if (fileType === 'image' && item.asset.size > X_IMAGE_LIMIT) {
-      const compressed = await compressImageForX(fileUrl, item.asset.size);
-      if (compressed && isR2Configured()) {
-        tempR2Key = `compressed/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        fileUrl   = await uploadToR2(compressed, tempR2Key);
+    const items: { fileUrl: string; fileType: 'image' | 'video' }[] = [];
+
+    for (const asset of item.assets) {
+      const fileType: 'image' | 'video' =
+        asset.type === 'VIDEO' || asset.type === 'CLIP' ? 'video' : 'image';
+      let fileUrl = asset.fileUrl;
+
+      if (fileType === 'image' && asset.size > X_IMAGE_LIMIT) {
+        const compressed = await compressImageForX(fileUrl, asset.size);
+        if (compressed && isR2Configured()) {
+          const key = `compressed/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+          tempR2Keys.push(key);
+          fileUrl = await uploadToR2(compressed, key);
+        }
       }
+
+      items.push({ fileUrl, fileType });
     }
 
     const { data, error } = await supabase.functions.invoke('post-x', {
-      body: { fileUrl, fileType, caption },
+      body: { items, caption },
     });
 
     const ok       = !error && data?.success === true;
     const errorMsg = error?.message ?? (data?.error ? String(data.error) : undefined);
 
-    return { asset: item.asset.name, platform: 'x', ok, error: errorMsg };
+    return { asset: assetName, platform: 'x', ok, error: errorMsg };
   } finally {
-    if (tempR2Key) deleteFromR2(tempR2Key).catch(() => {});
+    for (const key of tempR2Keys) deleteFromR2(key).catch(() => {});
   }
 }

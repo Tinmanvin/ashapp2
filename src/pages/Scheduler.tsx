@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useSchedulerStore, type ScheduledAsset } from "@/store/schedulerStore";
+import type { UploadedAsset } from "@/hooks/useFileUpload";
 import { PLATFORM_META } from "@/lib/captionPrompts";
 import { postScheduledItems, type PostStage } from "@/lib/telegramPoster";
 import { scheduleBackgroundCompression } from "@/lib/backgroundCompressor";
@@ -57,6 +58,8 @@ function QueueCard({
   selected?: boolean;
   onToggle?: () => void;
 }) {
+  const cover = item.assets[0];
+  const isGroup = item.assets.length > 1;
   const readyCount = item.platforms.filter(
     (p) => (item.captions[p] ?? "").trim().length > 0
   ).length;
@@ -84,19 +87,24 @@ function QueueCard({
           )}
         </div>
 
-        <div className="h-12 w-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
-          {item.asset.previewUrl ? (
-            <img src={item.asset.previewUrl} alt={item.asset.name} className="h-full w-full object-cover" />
+        <div className="relative h-12 w-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
+          {cover?.previewUrl ? (
+            <img src={cover.previewUrl} alt={cover.name} className="h-full w-full object-cover" />
           ) : (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground/30 text-micro">
-              {item.asset.type === "VIDEO" ? "▶" : "IMG"}
+              {cover?.type === "VIDEO" ? "▶" : "IMG"}
             </div>
+          )}
+          {isGroup && (
+            <span className="absolute bottom-0.5 right-0.5 rounded-md bg-black/70 px-1 text-[9px] font-bold text-white leading-tight">
+              {item.assets.length}
+            </span>
           )}
         </div>
 
         <div className="flex-1 min-w-0">
           <span className="text-body font-satoshi text-foreground block truncate">
-            {item.asset.name}
+            {isGroup ? `${item.assets.length} items · ${cover?.name ?? ""}` : cover?.name}
           </span>
           <div className="flex items-center gap-2 mt-1">
             <PlatformDots platforms={item.platforms} />
@@ -171,7 +179,9 @@ function DayCell({
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-0.5 overscroll-contain">
         {items.map((item) => {
           const isConfirmed = item.confirmed === true;
-          const isHovered   = hoveredId === item.asset.id;
+          const cover       = item.assets[0];
+          const isGroup     = item.assets.length > 1;
+          const isHovered   = hoveredId === item.groupId;
           const statusColor =
             item.dbStatus === "posted" ? "bg-success"
             : item.dbStatus === "failed" ? "bg-danger"
@@ -182,20 +192,25 @@ function DayCell({
 
           return (
             <div
-              key={item.asset.id}
+              key={item.groupId}
               className={`flex items-center gap-1 rounded px-1 py-0.5 transition-colors cursor-pointer ${
                 isConfirmed
                   ? isHovered ? "bg-accent-violet/[0.18]" : "bg-accent-violet/[0.09]"
                   : "bg-white/[0.06] hover:bg-white/10"
               }`}
-              title={`${item.asset.name}${timeLabel ? ` · ${timeLabel}` : ""}`}
-              onMouseEnter={() => setHoveredId(item.asset.id)}
+              title={`${isGroup ? `${item.assets.length} items · ` : ""}${cover?.name ?? ""}${timeLabel ? ` · ${timeLabel}` : ""}`}
+              onMouseEnter={() => setHoveredId(item.groupId)}
               onMouseLeave={() => setHoveredId(null)}
-              onClick={isConfirmed ? () => onDeleteConfirmed(item.asset.id) : () => onRemoveItem(item.asset.id)}
+              onClick={isConfirmed ? () => onDeleteConfirmed(item.groupId) : () => onRemoveItem(item.groupId)}
             >
-              <div className="h-5 w-5 rounded overflow-hidden shrink-0 bg-white/10">
-                {item.asset.previewUrl && (
-                  <img src={item.asset.previewUrl} alt="" className="h-full w-full object-cover" />
+              <div className="relative h-5 w-5 rounded overflow-hidden shrink-0 bg-white/10">
+                {cover?.previewUrl && (
+                  <img src={cover.previewUrl} alt="" className="h-full w-full object-cover" />
+                )}
+                {isGroup && (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[8px] font-bold text-white">
+                    {item.assets.length}
+                  </span>
                 )}
               </div>
               <div className="flex gap-0.5 flex-wrap min-w-0 flex-1">
@@ -292,54 +307,76 @@ export default function Scheduler() {
 
         const byDate: Record<string, ScheduledAsset[]> = {};
         const groupMap = new Map<string, ScheduledAsset>();
+        // Track each group's assets with their position so we can order the album.
+        const assetPos = new Map<string, Map<string, number>>();
+
+        const rowToAsset = (row: Record<string, unknown>): UploadedAsset => ({
+          id: row.asset_id as string,
+          name: row.asset_name as string,
+          type: row.asset_type as "IMAGE" | "VIDEO" | "CLIP",
+          ratio: (row.asset_ratio ?? "landscape") as "landscape" | "portrait" | "square",
+          previewUrl: (row.asset_preview_url as string) ?? "",
+          fileUrl: row.file_url as string,
+          size: 0,
+          source: "local",
+          status: "uploaded",
+          uploadedAt: row.created_at as string,
+          episodeTag: null,
+          tags: [],
+        });
 
         for (const row of data) {
-          const dateKey  = (row.scheduled_at as string).slice(0, 10);
-          const groupKey = `${row.asset_id}:${dateKey}`;
+          const dateKey = (row.scheduled_at as string).slice(0, 10);
+          // Legacy safety: rows missing group_id fall back to their own id.
+          const gid = (row.group_id as string) ?? (row.id as string);
 
-          if (!groupMap.has(groupKey)) {
+          if (!groupMap.has(gid)) {
             const item: ScheduledAsset = {
-              asset: {
-                id: row.asset_id,
-                name: row.asset_name,
-                type: row.asset_type as "IMAGE" | "VIDEO" | "CLIP",
-                ratio: (row.asset_ratio ?? "landscape") as "landscape" | "portrait" | "square",
-                previewUrl: row.asset_preview_url ?? "",
-                fileUrl: row.file_url,
-                size: 0,
-                source: "local" as const,
-                status: "uploaded" as const,
-                uploadedAt: row.created_at as string,
-                episodeTag: null,
-              },
+              groupId: gid,
+              assets: [],
               platforms: [],
               captions: {},
               scheduledAt: row.scheduled_at as string,
               confirmed: true,
               dbStatus: row.status as "pending" | "posting" | "posted" | "failed",
             };
-            groupMap.set(groupKey, item);
+            groupMap.set(gid, item);
+            assetPos.set(gid, new Map());
             if (!byDate[dateKey]) byDate[dateKey] = [];
             byDate[dateKey].push(item);
           }
 
-          const item = groupMap.get(groupKey)!;
+          const item = groupMap.get(gid)!;
+          const seen = assetPos.get(gid)!;
+          if (!seen.has(row.asset_id as string)) {
+            seen.set(row.asset_id as string, (row.position as number) ?? 0);
+            item.assets.push(rowToAsset(row));
+          }
           if (!item.platforms.includes(row.platform as string)) {
             item.platforms.push(row.platform as string);
           }
-          item.captions[row.platform as string] = row.caption as string;
+          // Group caption lives on position 0; prefer it, else first seen.
+          if ((row.position as number) === 0 || !item.captions[row.platform as string]) {
+            item.captions[row.platform as string] = row.caption as string;
+          }
 
           // Surface the worst status for the whole item
           if (row.status === "failed") item.dbStatus = "failed";
           else if (row.status === "posting" && item.dbStatus !== "failed") item.dbStatus = "posting";
         }
 
+        // Order each group's assets by their stored position.
+        for (const [gid, item] of groupMap) {
+          const pos = assetPos.get(gid)!;
+          item.assets.sort((a, b) => (pos.get(a.id) ?? 0) - (pos.get(b.id) ?? 0));
+        }
+
         loadConfirmedSchedule(byDate);
       });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  function queueKey(item: { asset: { id: string }; platforms: string[] }) {
-    return `${item.asset.id}:${[...item.platforms].sort().join(',')}`;
+  function queueKey(item: ScheduledAsset) {
+    return item.groupId;
   }
 
   function toggleSelect(key: string) {
@@ -396,20 +433,24 @@ export default function Scheduler() {
     setPostStage("posting");
     try {
       const rows = newItems.flatMap(({ item }) =>
-        item.platforms.map((platform) => ({
-          asset_id:          item.asset.id,
-          asset_name:        item.asset.name,
-          asset_type:        item.asset.type,
-          asset_ratio:       item.asset.ratio,
-          asset_preview_url: item.asset.previewUrl || null,
-          platform,
-          caption:           item.captions[platform] ?? "",
-          file_url:          item.asset.fileUrl,
-          file_type:         item.asset.type !== "IMAGE" ? "video" : "image",
-          website_config:    item.websiteConfig ?? null,
-          scheduled_at:      item.scheduledAt,
-          status:            "pending",
-        }))
+        item.platforms.flatMap((platform) =>
+          item.assets.map((asset, idx) => ({
+            asset_id:          asset.id,
+            asset_name:        asset.name,
+            asset_type:        asset.type,
+            asset_ratio:       asset.ratio,
+            asset_preview_url: asset.previewUrl || null,
+            platform,
+            caption:           item.captions[platform] ?? "",
+            file_url:          asset.fileUrl,
+            file_type:         asset.type !== "IMAGE" ? "video" : "image",
+            website_config:    item.websiteConfig ?? null,
+            scheduled_at:      item.scheduledAt,
+            status:            "pending",
+            group_id:          item.groupId,
+            position:          idx,
+          }))
+        )
       );
 
       const { data: insertedRows, error } = await supabase
@@ -421,7 +462,7 @@ export default function Scheduler() {
         return;
       }
 
-      confirmSchedule(newItems.map(({ item }) => item.asset.id));
+      confirmSchedule(newItems.map(({ item }) => item.groupId));
 
       // Silently pre-compress videos/images in the background so they're ready at post time
       if (insertedRows?.length) {
@@ -463,14 +504,14 @@ export default function Scheduler() {
     }
   }
 
-  async function handleDeleteConfirmed(dateKey: string, assetId: string) {
+  async function handleDeleteConfirmed(dateKey: string, groupId: string) {
     // Update UI immediately so it feels instant
-    deleteConfirmedItem(dateKey, assetId);
-    // Clean up Supabase in the background
+    deleteConfirmedItem(dateKey, groupId);
+    // Clean up Supabase in the background — removes the whole group
     const { error } = await supabase
       .from("scheduled_posts")
       .delete()
-      .eq("asset_id", assetId);
+      .eq("group_id", groupId);
     if (error) console.error("[delete-scheduled] Supabase error:", error.message);
   }
 

@@ -55,6 +55,33 @@ const platforms = [
 
 const ACCEPTED_ATTR = "image/*,video/*";
 
+// ── Group posting rules ─────────────────────────────────────────────────────
+// Single posts (1 asset) have no group limits. Multi-asset posts become one
+// native album (Telegram) / multi-image tweet (X), so platform caps apply.
+//   • X, multi: images only, max 4 (no multiple videos, no mixing).
+//   • Telegram, multi: max 10, photos + videos may mix.
+//   • X + Telegram together: X's stricter rule wins.
+function validateGroupRules(
+  selectedAssets: UploadedAsset[],
+  platformValues: string[],
+): string | null {
+  if (selectedAssets.length <= 1) return null; // single post — no limits
+
+  const hasX        = platformValues.includes("x");
+  const hasTelegram = platformValues.some((p) => p.startsWith("telegram"));
+  const anyVideo    = selectedAssets.some((a) => a.type === "VIDEO" || a.type === "CLIP");
+  const n           = selectedAssets.length;
+
+  if (hasX) {
+    if (anyVideo) return "X can’t mix video and images in one post. Remove the video(s) to group on X (max 4 images).";
+    if (n > 4)    return `X allows max 4 images per post. Deselect ${n - 4} to continue.`;
+  }
+  if (hasTelegram && n > 10) {
+    return `Telegram allows max 10 per album. Deselect ${n - 10}.`;
+  }
+  return null;
+}
+
 // ── Shared dropdown rendered into document.body via portal ───────────────────
 
 function TagDropdown({
@@ -424,6 +451,8 @@ export default function MediaLibrary() {
     const platformValues = activePlatforms.map(
       (name) => DISPLAY_NAME_TO_PLATFORM[name] ?? name
     );
+    const err = validateGroupRules(selectedAssets, platformValues);
+    if (err) { toast.error(err); return; }
     setProcessingJob(selectedAssets, platformValues, localWebsiteConfig);
     navigate("/processing");
   };
@@ -485,6 +514,12 @@ export default function MediaLibrary() {
   }, []);
 
   const hasSelection = selected.length > 0;
+
+  // Live group-rule validation for the current selection + platforms
+  const selectedAssetObjs = assets.filter((a) => selected.includes(a.id));
+  const platformValues = activePlatforms.map((name) => DISPLAY_NAME_TO_PLATFORM[name] ?? name);
+  const validationError = validateGroupRules(selectedAssetObjs, platformValues);
+  const isGroupSelection = selected.length > 1;
 
   const selectAll = useCallback(() => {
     setSelected(filteredAssets.map((a) => a.id));
@@ -931,11 +966,22 @@ export default function MediaLibrary() {
                 </div>
 
                 <div className="mt-auto pt-6">
+                  {isGroupSelection && activePlatforms.length > 0 && (
+                    validationError ? (
+                      <p className="mb-2 rounded-lg bg-danger/10 border border-danger/30 px-3 py-2 text-micro text-danger font-satoshi leading-snug">
+                        {validationError}
+                      </p>
+                    ) : (
+                      <p className="mb-2 text-micro text-accent-violet/80 font-satoshi text-center">
+                        Posting {selected.length} as one group
+                      </p>
+                    )
+                  )}
                   <button
                     onClick={handleProcess}
-                    disabled={activePlatforms.length === 0}
+                    disabled={activePlatforms.length === 0 || !!validationError}
                     className={`w-full rounded-full py-3 text-sub font-medium transition-all flex items-center justify-center gap-2 ${
-                      activePlatforms.length > 0
+                      activePlatforms.length > 0 && !validationError
                         ? "glass-accent text-white"
                         : "glass-button text-muted-foreground cursor-not-allowed"
                     }`}

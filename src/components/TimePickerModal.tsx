@@ -105,18 +105,23 @@ export default function TimePickerModal({ dateKey, item, onConfirm, onCancel }: 
         >
           {/* Asset row */}
           <div className="flex items-center gap-3 mb-5">
-            <div className="h-11 w-11 rounded-xl overflow-hidden bg-white/5 shrink-0">
-              {item.asset.previewUrl ? (
-                <img src={item.asset.previewUrl} alt="" className="h-full w-full object-cover" />
+            <div className="relative h-11 w-11 rounded-xl overflow-hidden bg-white/5 shrink-0">
+              {item.assets[0]?.previewUrl ? (
+                <img src={item.assets[0].previewUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center">
                   <Clock className="h-4 w-4 text-muted-foreground/30" />
                 </div>
               )}
+              {item.assets.length > 1 && (
+                <span className="absolute bottom-0 right-0 rounded-md bg-black/70 px-1 text-[9px] font-bold text-white leading-tight">
+                  {item.assets.length}
+                </span>
+              )}
             </div>
             <div className="min-w-0">
               <p className="text-body font-satoshi text-foreground font-medium truncate">
-                {item.asset.name}
+                {item.assets.length > 1 ? `${item.assets.length} items · ${item.assets[0]?.name ?? ""}` : item.assets[0]?.name}
               </p>
               <p className="text-micro font-mono text-muted-foreground mt-0.5 truncate">
                 {dateLabel}

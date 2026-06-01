@@ -3,10 +3,10 @@ import { uploadToR2, isR2Configured } from '@/lib/r2';
 import {
   compressVideoForTelegram,
   compressImageForX,
-  TELEGRAM_VIDEO_LIMIT,
   X_IMAGE_LIMIT,
 } from '@/lib/videoCompressor';
 import type { ScheduledAsset } from '@/store/schedulerStore';
+import type { UploadedAsset } from '@/hooks/useFileUpload';
 
 interface InsertedRow {
   id: string;
@@ -18,6 +18,8 @@ interface InsertedRow {
  * Fire-and-forget: compress videos/images for scheduled posts in the background.
  * Runs silently after "Publish on Schedule" saves rows to Supabase.
  * Updates file_url in the DB once compression + R2 upload finishes.
+ *
+ * Group-aware: a post can contain multiple assets — each is compressed in turn.
  */
 export function scheduleBackgroundCompression(
   items: ScheduledAsset[],
@@ -42,31 +44,30 @@ async function runCompression(
     byPlatform.get(row.platform)!.push(row.id);
   }
 
-  // Sequential — FFmpeg WASM is a singleton; concurrent exec() calls corrupt state
+  // Sequential — FFmpeg WASM is a singleton; concurrent exec() calls corrupt state.
   for (const item of items) {
-    await compressItem(item, rowLookup.get(item.asset.id) ?? new Map()).catch((err) => {
-      console.error(`[backgroundCompressor] Failed for "${item.asset.name}":`, err);
-    });
+    for (const asset of item.assets) {
+      await compressAsset(asset, item.platforms, rowLookup.get(asset.id) ?? new Map()).catch((err) => {
+        console.error(`[backgroundCompressor] Failed for "${asset.name}":`, err);
+      });
+    }
   }
 }
 
-async function compressItem(
-  item: ScheduledAsset,
+async function compressAsset(
+  asset: UploadedAsset,
+  platforms: string[],
   platformRows: Map<string, string[]>,
 ): Promise<void> {
-  const isVideo = item.asset.type === 'VIDEO' || item.asset.type === 'CLIP';
-  const telegramPlatforms = item.platforms.filter((p) => p.startsWith('telegram'));
-  const hasX = item.platforms.includes('x');
+  const isVideo = asset.type === 'VIDEO' || asset.type === 'CLIP';
+  const telegramPlatforms = platforms.filter((p) => p.startsWith('telegram'));
+  const hasX = platforms.includes('x');
 
   // ── Telegram: transcode all videos — H.264 + faststart for HEVC compatibility ──
   if (isVideo && telegramPlatforms.length > 0) {
-    const key = `compressed/telegram/${item.asset.id}.mp4`;
+    const key = `compressed/telegram/${asset.id}.mp4`;
     try {
-      const compressed = await compressVideoForTelegram(
-        item.asset.fileUrl,
-        item.asset.size,
-        () => {}, // silent — no progress UI
-      );
+      const compressed = await compressVideoForTelegram(asset.fileUrl, asset.size, () => {});
       if (compressed) {
         const compressedUrl = await uploadToR2(compressed, key);
         const rowIds = telegramPlatforms.flatMap((p) => platformRows.get(p) ?? []);
@@ -80,10 +81,10 @@ async function compressItem(
   }
 
   // ── X: compress image over 4.5 MB ────────────────────────────────────────────
-  if (!isVideo && hasX && item.asset.size > X_IMAGE_LIMIT) {
-    const key = `compressed/x/${item.asset.id}.jpg`;
+  if (!isVideo && hasX && asset.size > X_IMAGE_LIMIT) {
+    const key = `compressed/x/${asset.id}.jpg`;
     try {
-      const compressed = await compressImageForX(item.asset.fileUrl, item.asset.size);
+      const compressed = await compressImageForX(asset.fileUrl, asset.size);
       if (compressed) {
         const compressedUrl = await uploadToR2(compressed, key);
         const rowIds = platformRows.get('x') ?? [];

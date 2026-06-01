@@ -182,8 +182,8 @@ export default function Dashboard() {
     if (!future.length) return null;
     const { item } = future[0];
     return {
-      previewUrl: item.asset.previewUrl,
-      assetType: item.asset.type,
+      previewUrl: item.assets[0]?.previewUrl ?? "",
+      assetType: item.assets[0]?.type ?? "IMAGE",
       platform: item.platforms[0] ?? "",
       scheduledAt: item.scheduledAt!,
     };
@@ -223,11 +223,11 @@ export default function Dashboard() {
       .flatMap(({ item }) =>
         item.platforms
           .map((p) => ({
-            key: `${item.asset.id}-${p}-${item.scheduledAt}`,
-            previewUrl: item.asset.previewUrl,
-            assetType: item.asset.type,
+            key: `${item.groupId}-${p}-${item.scheduledAt}`,
+            previewUrl: item.assets[0]?.previewUrl ?? "",
+            assetType: item.assets[0]?.type ?? "IMAGE",
             platform: p,
-            caption: item.captions[p] ?? item.asset.name,
+            caption: item.captions[p] ?? item.assets[0]?.name ?? "",
             scheduledAt: item.scheduledAt!,
           })),
       )

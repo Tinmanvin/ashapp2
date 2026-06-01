@@ -10,17 +10,20 @@ export async function postToWebsite(
 ): Promise<PostResult> {
   const cfg = item.websiteConfig;
 
-  const title      = (cfg?.title?.trim() || item.asset.name).replace(/\.[^/.]+$/, '');
-  const externalId = `contenthub-${item.asset.id}-${Date.now()}`;
+  // Website is a single-item funnel — a grouped post publishes its cover asset.
+  const asset = item.assets[0];
+
+  const title      = (cfg?.title?.trim() || asset.name).replace(/\.[^/.]+$/, '');
+  const externalId = `contenthub-${asset.id}-${Date.now()}`;
   const categories = cfg?.categories ?? [];
   const tags       = cfg?.tags ?? [];
-  const snapshotUrl = [cfg?.thumbnailUrl, item.asset.previewUrl].find(u => u?.startsWith('https://'));
+  const snapshotUrl = [cfg?.thumbnailUrl, asset.previewUrl].find(u => u?.startsWith('https://'));
   let thumbnailUrl = snapshotUrl ?? '';
   if (!thumbnailUrl) {
     const { data: assetRow } = await supabase
       .from('assets')
       .select('thumbnail_url')
-      .eq('id', item.asset.id)
+      .eq('id', asset.id)
       .maybeSingle();
     thumbnailUrl = assetRow?.thumbnail_url ?? '';
   }
@@ -29,17 +32,17 @@ export async function postToWebsite(
   const { data: captionRow } = await supabase
     .from('captions')
     .select('body')
-    .eq('asset_id', item.asset.id)
+    .eq('asset_id', asset.id)
     .eq('platform', 'website')
     .maybeSingle();
   const caption = captionRow?.body || item.captions['website'] || '';
 
   const { data, error } = await supabase.functions.invoke('post-website', {
-    body: { fileUrl: item.asset.fileUrl, title, externalId, categories, tags, thumbnailUrl, caption },
+    body: { fileUrl: asset.fileUrl, title, externalId, categories, tags, thumbnailUrl, caption },
   });
 
   const ok       = !error && data?.success === true;
   const errorMsg = error?.message ?? (data?.error ? String(data.error) : undefined);
 
-  return { asset: item.asset.name, platform: 'website', ok, error: errorMsg };
+  return { asset: asset.name, platform: 'website', ok, error: errorMsg };
 }

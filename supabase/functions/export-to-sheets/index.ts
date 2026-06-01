@@ -145,7 +145,7 @@ Deno.serve(async (req) => {
   // 1. Find asset_ids that have scheduled posts (non-failed) but haven't been exported yet
   const { data: posts, error: postsError } = await supabase
     .from('scheduled_posts')
-    .select('asset_id, platform, caption, scheduled_at, posted_at, status')
+    .select('asset_id, platform, caption, scheduled_at, posted_at, status, group_id, position')
     .in('status', ['pending', 'posting', 'posted'])
 
   if (postsError) {
@@ -190,6 +190,25 @@ Deno.serve(async (req) => {
       { headers: { ...CORS, 'Content-Type': 'application/json' } }
     )
   }
+
+  // 2b. Order assets so grouped ones stay adjacent (by group, then position).
+  // One row per asset is preserved — we only control row ordering.
+  const assetMeta: Record<string, { group_id: string | null; position: number; scheduled_at: string }> = {}
+  for (const p of posts) {
+    if (!assetMeta[p.asset_id]) {
+      assetMeta[p.asset_id] = { group_id: p.group_id ?? null, position: p.position ?? 0, scheduled_at: p.scheduled_at }
+    }
+  }
+  assets.sort((a: any, b: any) => {
+    const ma = assetMeta[a.id], mb = assetMeta[b.id]
+    const ga = ma?.group_id ?? a.id, gb = mb?.group_id ?? b.id
+    if (ga !== gb) {
+      const ta = ma?.scheduled_at ?? '', tb = mb?.scheduled_at ?? ''
+      if (ta !== tb) return ta < tb ? -1 : 1
+      return ga < gb ? -1 : 1
+    }
+    return (ma?.position ?? 0) - (mb?.position ?? 0)
+  })
 
   // 3. Fetch approved captions for these assets
   const { data: captions } = await supabase
