@@ -119,19 +119,29 @@ function GridTile({ asset }: { asset: UploadedAsset }) {
 }
 
 /**
- * X renders multi-image posts in fixed native layouts:
- *   2 → side by side · 3 → 1 large left + 2 stacked right · 4 → 2x2
- * Telegram uses a looser mosaic; we approximate with a tidy grid.
+ * Approximates the native album mosaic used by Telegram (and X):
+ *   2 → side by side · 3 → 1 tall left + 2 stacked right · 4 → 2x2
+ *   5 → 2 on top + 3 on bottom · 6+ → rows of 3
  */
 function AlbumGrid({ assets, platform }: { assets: UploadedAsset[]; platform: "x" | "telegram" }) {
   const n = assets.length;
   const radius = platform === "telegram" ? MEDIA_RADIUS : { borderRadius: "1rem" } as React.CSSProperties;
   const gap = 2;
+  const cell: React.CSSProperties = { overflow: "hidden", aspectRatio: "1 / 1" };
 
-  // X 3-image special layout: big left, two stacked right
-  if (platform === "x" && n === 3) {
+  // 2 — side by side, tall tiles (matches Telegram's 2-up)
+  if (n === 2) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap, aspectRatio: "16/9", overflow: "hidden", ...radius }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap, overflow: "hidden", ...radius }}>
+        {assets.map((a) => <div key={a.id} style={{ overflow: "hidden", aspectRatio: "4 / 5" }}><GridTile asset={a} /></div>)}
+      </div>
+    );
+  }
+
+  // 3 — 1 tall left + 2 stacked right
+  if (n === 3) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gridTemplateRows: "1fr 1fr", gap, aspectRatio: "1 / 1", overflow: "hidden", ...radius }}>
         <div style={{ gridRow: "1 / 3", overflow: "hidden" }}><GridTile asset={assets[0]} /></div>
         <div style={{ overflow: "hidden" }}><GridTile asset={assets[1]} /></div>
         <div style={{ overflow: "hidden" }}><GridTile asset={assets[2]} /></div>
@@ -139,36 +149,33 @@ function AlbumGrid({ assets, platform }: { assets: UploadedAsset[]; platform: "x
     );
   }
 
-  // 2 items: side by side
-  if (n === 2) {
-    return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap, aspectRatio: platform === "x" ? "16/9" : "2/1", overflow: "hidden", ...radius }}>
-        {assets.map((a) => <div key={a.id} style={{ overflow: "hidden" }}><GridTile asset={a} /></div>)}
-      </div>
-    );
-  }
-
-  // 4 items: 2x2
+  // 4 — 2x2
   if (n === 4) {
     return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gridAutoRows: "1fr", gap, aspectRatio: "1/1", overflow: "hidden", ...radius }}>
-        {assets.map((a) => <div key={a.id} style={{ overflow: "hidden" }}><GridTile asset={a} /></div>)}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap, overflow: "hidden", ...radius }}>
+        {assets.map((a) => <div key={a.id} style={cell}><GridTile asset={a} /></div>)}
       </div>
     );
   }
 
-  // 3 (telegram) and 5+ : balanced grid. First item spans full width for 3.
-  const cols = n <= 4 ? 2 : 3;
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: "1fr", gap, overflow: "hidden", ...radius }}>
-      {assets.map((a, i) => (
-        <div
-          key={a.id}
-          style={{ overflow: "hidden", aspectRatio: "1/1", ...(n === 3 && i === 0 ? { gridColumn: "1 / 3", aspectRatio: "2/1" } : {}) }}
-        >
-          <GridTile asset={a} />
+  // 5 — 2 on top, 3 on bottom
+  if (n === 5) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap, overflow: "hidden", ...radius }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap }}>
+          {assets.slice(0, 2).map((a) => <div key={a.id} style={{ overflow: "hidden", aspectRatio: "5 / 4" }}><GridTile asset={a} /></div>)}
         </div>
-      ))}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap }}>
+          {assets.slice(2, 5).map((a) => <div key={a.id} style={cell}><GridTile asset={a} /></div>)}
+        </div>
+      </div>
+    );
+  }
+
+  // 6+ — rows of 3
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap, overflow: "hidden", ...radius }}>
+      {assets.map((a) => <div key={a.id} style={cell}><GridTile asset={a} /></div>)}
     </div>
   );
 }

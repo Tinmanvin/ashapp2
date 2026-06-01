@@ -90,6 +90,24 @@ serve(async (req) => {
     const caption  = ordered[0].caption; // group caption lives on position 0
     const ids = ordered.map((r) => r.id);
 
+    // Telegram videos are compressed server-side. If any are still in flight,
+    // defer the whole group to the next tick (rows go back to 'pending').
+    if (platform.startsWith("telegram")) {
+      const videoAssetIds = [...new Set(ordered.filter((r) => r.file_type === "video").map((r) => r.asset_id))];
+      if (videoAssetIds.length) {
+        const { data: jobs } = await supabase
+          .from("compression_jobs")
+          .select("asset_id, status")
+          .in("asset_id", videoAssetIds)
+          .in("status", ["queued", "running"]);
+        if (jobs && jobs.length) {
+          await supabase.from("scheduled_posts").update({ status: "pending" }).in("id", ids);
+          console.log(`[run-scheduled] Deferring telegram group — ${jobs.length} compression job(s) still running`);
+          return { platform, ok: true, deferred: true, count: ids.length };
+        }
+      }
+    }
+
     try {
       let result;
       if (platform === "x") {

@@ -21,6 +21,17 @@ interface GroupItem {
   duration?: number;
 }
 
+// Give every thought its own line with a blank line between — Ash's spaced style.
+// OpenAI sometimes returns single newlines (cramped) or inconsistent spacing.
+function normalizeCaption(text: string): string {
+  if (!text) return text;
+  return text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+    .join("\n\n");
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -58,7 +69,8 @@ serve(async (req) => {
       items?: GroupItem[];
     };
 
-    const { platform, caption = "" } = payload;
+    const { platform } = payload;
+    const caption = normalizeCaption(payload.caption ?? "");
 
     if (!BOT_TOKEN) return json({ success: false, error: "TELEGRAM_BOT_TOKEN not set" });
 

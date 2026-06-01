@@ -150,6 +150,12 @@ async function postTweet(text: string, mediaIds: string[]): Promise<unknown> {
   return data;
 }
 
+// Give every thought its own line with a blank line between — matches Telegram.
+function normalizeCaption(text: string): string {
+  if (!text) return text;
+  return text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0).join("\n\n");
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 serve(async (req) => {
@@ -164,7 +170,7 @@ serve(async (req) => {
       // Group shape (2+ images → one tweet):
       items?: { fileUrl: string; fileType: "image" | "video" }[];
     };
-    const caption = payload.caption ?? "";
+    const caption = normalizeCaption(payload.caption ?? "");
 
     if (!API_KEY || !API_SECRET || !ACCESS_TOKEN || !ACCESS_TOKEN_SECRET) {
       return new Response(JSON.stringify({ error: "X credentials not configured" }), {

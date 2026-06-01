@@ -1,21 +1,19 @@
 /**
- * Shared posting pipeline. Used by both "Post Now" (test) and, indirectly, the
- * scheduled cron (which mirrors this logic server-side).
+ * Shared posting pipeline. Used by "Post Now".
  *
  * A post is ALWAYS a "group of N":
- *   - assets.length === 1 → single sendPhoto/sendVideo (unchanged).
+ *   - assets.length === 1 → single sendPhoto/sendVideo.
  *   - assets.length  >  1 → native album via sendMediaGroup.
  *
- * Telegram videos over the limit are compressed in the browser, uploaded to a
- * temp R2 key, posted, then the temp file is deleted.
+ * Telegram videos are compressed SERVER-SIDE via Trigger.dev (handles any size,
+ * runs off the browser). We enqueue the job, poll it, then post the result.
  */
 
-import { supabase } from '@/lib/supabase';
-import { uploadToR2, deleteFromR2, isR2Configured } from '@/lib/r2';
-import { compressVideoForTelegram } from '@/lib/videoCompressor';
-import { probeVideoDimensions } from '@/lib/videoProbe';
 import { postToX } from '@/lib/xPoster';
 import { postToWebsite } from '@/lib/websitePoster';
+import { triggerTelegramCompression, waitForTelegramCompression } from '@/lib/telegramVideoCompressor';
+import { probeVideoDimensions } from '@/lib/videoProbe';
+import { supabase } from '@/lib/supabase';
 import type { ScheduledAsset } from '@/store/schedulerStore';
 import type { UploadedAsset } from '@/hooks/useFileUpload';
 
@@ -58,7 +56,7 @@ function isVideoAsset(asset: UploadedAsset): boolean {
 
 /**
  * Post a single grouped item to all its platforms.
- * Telegram media is prepared once (compress + probe per asset) and reused
+ * Telegram media is prepared once (server-side compress per video) and reused
  * across every Telegram channel in the post.
  */
 export async function postScheduledItem(
@@ -67,13 +65,16 @@ export async function postScheduledItem(
 ): Promise<PostResult[]> {
   const { onStageChange, onCompressionProgress } = callbacks;
   const results: PostResult[] = [];
-  const tempR2Keys: string[] = [];
   const label = item.assets[0]?.name ?? 'unknown';
 
   try {
     const telegramPlatforms = item.platforms.filter(p => p.startsWith('telegram'));
 
-    // ── Prepare Telegram media once (sequential — FFmpeg WASM is a singleton) ──
+    // Multi-video albums must share Telegram's ~50 MB request cap, so shrink each.
+    const videoCount = item.assets.filter(isVideoAsset).length;
+    const perVideoTargetMb = videoCount > 1 ? Math.max(8, Math.floor(42 / videoCount)) : 45;
+
+    // ── Prepare Telegram media (videos compressed server-side, sequentially) ──
     const tgMedia: TelegramMediaItem[] = [];
     if (telegramPlatforms.length > 0) {
       for (const asset of item.assets) {
@@ -84,20 +85,15 @@ export async function postScheduledItem(
 
         onStageChange('compressing');
         onCompressionProgress(0);
-        let fileUrl = asset.fileUrl;
 
-        const compressed = await compressVideoForTelegram(asset.fileUrl, asset.size, onCompressionProgress);
-        if (compressed && isR2Configured()) {
-          onStageChange('uploading');
-          const key = `compressed/${Date.now()}-${Math.random().toString(36).slice(2)}.mp4`;
-          tempR2Keys.push(key);
-          fileUrl = await uploadToR2(compressed, key);
-        }
+        // Server-side FFmpeg (Trigger.dev) — no browser memory limits.
+        const jobId = await triggerTelegramCompression(asset.fileUrl, asset.id, [], perVideoTargetMb);
+        const compressedUrl = await waitForTelegramCompression(jobId, onCompressionProgress);
 
-        // Probe dimensions — keeps portrait videos from stretching on mobile.
-        const dims = await probeVideoDimensions(fileUrl);
+        // Probe the compressed file's dimensions for correct Telegram rendering.
+        const dims = await probeVideoDimensions(compressedUrl);
         tgMedia.push({
-          fileUrl,
+          fileUrl: compressedUrl,
           fileType: 'video',
           ...(dims ? { width: dims.width, height: dims.height, duration: dims.duration } : {}),
         });
@@ -132,7 +128,6 @@ export async function postScheduledItem(
     }
   } finally {
     onStageChange(null);
-    for (const key of tempR2Keys) deleteFromR2(key).catch(() => {});
   }
 
   return results;
@@ -140,8 +135,6 @@ export async function postScheduledItem(
 
 /**
  * Post multiple grouped items sequentially.
- * Sequential is required: ffmpeg.wasm is a singleton — concurrent exec() calls
- * corrupt its internal state and cause silent failures.
  */
 export async function postScheduledItems(
   items: ScheduledAsset[],

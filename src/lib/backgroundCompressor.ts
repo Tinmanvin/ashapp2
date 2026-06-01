@@ -1,10 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { uploadToR2, isR2Configured } from '@/lib/r2';
-import {
-  compressVideoForTelegram,
-  compressImageForX,
-  X_IMAGE_LIMIT,
-} from '@/lib/videoCompressor';
+import { compressImageForX, X_IMAGE_LIMIT } from '@/lib/videoCompressor';
+import { triggerTelegramCompression } from '@/lib/telegramVideoCompressor';
 import type { ScheduledAsset } from '@/store/schedulerStore';
 import type { UploadedAsset } from '@/hooks/useFileUpload';
 
@@ -15,17 +12,19 @@ interface InsertedRow {
 }
 
 /**
- * Fire-and-forget: compress videos/images for scheduled posts in the background.
- * Runs silently after "Publish on Schedule" saves rows to Supabase.
- * Updates file_url in the DB once compression + R2 upload finishes.
+ * Fire-and-forget background compression for scheduled posts.
+ * Runs after "Publish on Schedule" saves rows to Supabase.
  *
- * Group-aware: a post can contain multiple assets — each is compressed in turn.
+ *  - Telegram videos → enqueued to the SERVER (Trigger.dev). The task compresses
+ *    and updates the rows' file_url when done; the cron waits for it before posting.
+ *  - X images > 4.5 MB → compressed in-browser (fast canvas re-encode).
+ *
+ * Group-aware: a post can contain multiple assets — each is handled in turn.
  */
 export function scheduleBackgroundCompression(
   items: ScheduledAsset[],
   insertedRows: InsertedRow[],
 ): void {
-  if (!isR2Configured()) return;
   runCompression(items, insertedRows).catch((err) => {
     console.error('[backgroundCompressor] Unexpected error:', err);
   });
@@ -44,44 +43,41 @@ async function runCompression(
     byPlatform.get(row.platform)!.push(row.id);
   }
 
-  // Sequential — FFmpeg WASM is a singleton; concurrent exec() calls corrupt state.
   for (const item of items) {
+    // Multi-video albums share Telegram's ~50 MB request cap, so shrink each.
+    const videoCount = item.assets.filter((a) => a.type === 'VIDEO' || a.type === 'CLIP').length;
+    const perVideoTargetMb = videoCount > 1 ? Math.max(8, Math.floor(42 / videoCount)) : 45;
     for (const asset of item.assets) {
-      await compressAsset(asset, item.platforms, rowLookup.get(asset.id) ?? new Map()).catch((err) => {
+      await handleAsset(asset, item.platforms, rowLookup.get(asset.id) ?? new Map(), perVideoTargetMb).catch((err) => {
         console.error(`[backgroundCompressor] Failed for "${asset.name}":`, err);
       });
     }
   }
 }
 
-async function compressAsset(
+async function handleAsset(
   asset: UploadedAsset,
   platforms: string[],
   platformRows: Map<string, string[]>,
+  perVideoTargetMb: number,
 ): Promise<void> {
   const isVideo = asset.type === 'VIDEO' || asset.type === 'CLIP';
   const telegramPlatforms = platforms.filter((p) => p.startsWith('telegram'));
   const hasX = platforms.includes('x');
 
-  // ── Telegram: transcode all videos — H.264 + faststart for HEVC compatibility ──
+  // ── Telegram video → server-side compression (Trigger.dev) ───────────────────
   if (isVideo && telegramPlatforms.length > 0) {
-    const key = `compressed/telegram/${asset.id}.mp4`;
+    const tgRowIds = telegramPlatforms.flatMap((p) => platformRows.get(p) ?? []);
     try {
-      const compressed = await compressVideoForTelegram(asset.fileUrl, asset.size, () => {});
-      if (compressed) {
-        const compressedUrl = await uploadToR2(compressed, key);
-        const rowIds = telegramPlatforms.flatMap((p) => platformRows.get(p) ?? []);
-        if (rowIds.length > 0) {
-          await supabase.from('scheduled_posts').update({ file_url: compressedUrl }).in('id', rowIds);
-        }
-      }
+      // Fire-and-forget enqueue — the task updates these rows' file_url when done.
+      await triggerTelegramCompression(asset.fileUrl, asset.id, tgRowIds, perVideoTargetMb);
     } catch (err) {
-      console.error(`[backgroundCompressor] Telegram video compression error:`, err);
+      console.error('[backgroundCompressor] Telegram enqueue error:', err);
     }
   }
 
-  // ── X: compress image over 4.5 MB ────────────────────────────────────────────
-  if (!isVideo && hasX && asset.size > X_IMAGE_LIMIT) {
+  // ── X image > 4.5 MB → fast browser compression ──────────────────────────────
+  if (!isVideo && hasX && asset.size > X_IMAGE_LIMIT && isR2Configured()) {
     const key = `compressed/x/${asset.id}.jpg`;
     try {
       const compressed = await compressImageForX(asset.fileUrl, asset.size);
@@ -93,7 +89,7 @@ async function compressAsset(
         }
       }
     } catch (err) {
-      console.error(`[backgroundCompressor] X image compression error:`, err);
+      console.error('[backgroundCompressor] X image compression error:', err);
     }
   }
 }

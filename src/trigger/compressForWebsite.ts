@@ -6,7 +6,8 @@ import * as path from "path";
 
 export const compressForWebsite = task({
   id: "compress-for-website",
-  machine: "small-2x",
+  // 4K source decode + encode needs real RAM — small-2x (1 GB) OOMs on big files.
+  machine: "medium-2x", // 4 GB / 2 vCPU
   maxDuration: 3600,
 
   run: async (payload: {
@@ -14,8 +15,19 @@ export const compressForWebsite = task({
     assetId: string;
     jobId: string;
     rowIds: string[];
+    // "website" → target ~85 MB; "telegram" → target ~45 MB (Telegram's 50 MB cap).
+    target?: "website" | "telegram";
+    // Optional override — multi-video Telegram albums shrink each video so the
+    // combined sendMediaGroup request stays under Telegram's ~50 MB request cap.
+    targetMb?: number;
   }) => {
     const { fileUrl, assetId, jobId, rowIds } = payload;
+    const target = payload.target ?? "website";
+    const targetMb = payload.targetMb ?? (target === "telegram" ? 45 : 85);
+    // Telegram: better preset + higher bitrate ceiling so short clips keep quality
+    // while staying under the 50 MB cap. Website keeps its original tuning.
+    const preset = target === "telegram" ? "veryfast" : "ultrafast";
+    const maxKbps = target === "telegram" ? 12000 : 2500;
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -43,20 +55,27 @@ export const compressForWebsite = task({
       const duration = await getVideoDuration(inputPath);
       await updateJob({ progress: 28 });
 
-      // Target 85 MB: calculate the bitrate needed to hit that size
-      const targetBitrateKbps = calcTargetBitrate(duration);
+      // Calculate the bitrate needed to hit the target size for this platform
+      const targetBitrateKbps = calcTargetBitrate(duration, targetMb, maxKbps);
+
+      // Telegram: cap to ~1080p (fit inside 1920x1920). Smaller frames = far less
+      // memory (avoids OOM on 4K sources) AND sharper output at the size budget.
+      const vf = target === "telegram"
+        ? "scale=w=1920:h=1920:force_original_aspect_ratio=decrease,scale=trunc(iw/2)*2:trunc(ih/2)*2"
+        : "scale=trunc(iw/2)*2:trunc(ih/2)*2";
 
       // Compress from local file
-      await runFFmpeg(inputPath, outputPath, duration, targetBitrateKbps, async (pct) => {
+      await runFFmpeg(inputPath, outputPath, duration, targetBitrateKbps, preset, vf, async (pct) => {
         const mapped = 28 + Math.round(pct * 57); // 28–85%
         await updateJob({ progress: mapped });
       });
 
       await updateJob({ progress: 90 });
 
-      // Upload compressed file to R2
+      // Upload compressed file to R2 — keyed per platform so website + telegram
+      // variants of the same asset never overwrite each other.
       const outputData = await fs.readFile(outputPath);
-      const key = `compressed/website/${assetId}.mp4`;
+      const key = `compressed/${target}/${assetId}.mp4`;
       const compressedUrl = await uploadToR2(outputData, key);
 
       await updateJob({ progress: 97 });
@@ -113,10 +132,10 @@ async function downloadFile(
   }
 }
 
-// Target 85 MB output. Subtract 128 kbps for audio. Clamp 200–2500 kbps.
-function calcTargetBitrate(durationSeconds: number): number {
-  const totalKbps = Math.floor((85 * 1024 * 1024 * 8) / durationSeconds / 1000);
-  return Math.max(200, Math.min(2500, totalKbps - 128));
+// Calculate bitrate to hit targetMb output. Subtract 128 kbps for audio. Clamp 200..maxKbps.
+function calcTargetBitrate(durationSeconds: number, targetMb = 85, maxKbps = 2500): number {
+  const totalKbps = Math.floor((targetMb * 1024 * 1024 * 8) / durationSeconds / 1000);
+  return Math.max(200, Math.min(maxKbps, totalKbps - 128));
 }
 
 function getVideoDuration(url: string): Promise<number> {
@@ -144,15 +163,17 @@ function runFFmpeg(
   outputPath: string,
   durationSeconds: number,
   targetBitrateKbps: number,
+  preset: string,
+  vf: string,
   onProgress: (pct: number) => Promise<void>,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn("ffmpeg", [
       "-i", inputUrl,
       "-map_metadata", "0",
-      "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
+      "-vf", vf,
       "-c:v", "libx264",
-      "-preset", "ultrafast",
+      "-preset", preset,
       "-b:v", `${targetBitrateKbps}k`,
       "-maxrate", `${targetBitrateKbps * 2}k`,
       "-bufsize", `${targetBitrateKbps * 4}k`,
