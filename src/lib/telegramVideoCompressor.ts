@@ -23,16 +23,25 @@ export async function triggerTelegramCompression(
   return data.jobId as string;
 }
 
+export interface CompressionResult {
+  url: string;
+  // Display dimensions probed server-side (ffprobe) by the compression task.
+  // Required by Telegram Bot API or portrait videos stretch on iOS/macOS.
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+}
+
 /**
  * Poll a compression job until done or failed.
- * Resolves with the compressed R2 URL on success.
+ * Resolves with the compressed R2 URL + probed dimensions on success.
  */
 export async function waitForTelegramCompression(
   jobId: string,
   onProgress: (pct: number) => void,
   intervalMs = 2000,
   maxWaitMs = 15 * 60 * 1000, // give up after 15 min (e.g. a crashed/OOM job)
-): Promise<string> {
+): Promise<CompressionResult> {
   const started = Date.now();
   return new Promise((resolve, reject) => {
     const poll = async () => {
@@ -43,7 +52,7 @@ export async function waitForTelegramCompression(
 
       const { data, error } = await supabase
         .from('compression_jobs')
-        .select('status, progress, compressed_url, error')
+        .select('status, progress, compressed_url, error, width, height, duration')
         .eq('id', jobId)
         .single();
 
@@ -51,7 +60,15 @@ export async function waitForTelegramCompression(
 
       onProgress(data.progress ?? 0);
 
-      if (data.status === 'done')   { resolve(data.compressed_url!); return; }
+      if (data.status === 'done') {
+        resolve({
+          url: data.compressed_url!,
+          width: data.width ?? null,
+          height: data.height ?? null,
+          duration: data.duration ?? null,
+        });
+        return;
+      }
       if (data.status === 'failed') { reject(new Error(data.error || 'Compression failed')); return; }
 
       setTimeout(poll, intervalMs);

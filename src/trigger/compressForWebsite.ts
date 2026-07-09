@@ -72,13 +72,23 @@ export const compressForWebsite = task({
 
       await updateJob({ progress: 90 });
 
+      // Probe the OUTPUT file's display dimensions. Telegram Bot API uploads
+      // don't auto-detect dims — iOS/macOS clients render the video card from
+      // the message's width/height attributes, so we must supply them or
+      // portrait videos stretch. Probing the output (not input) reports
+      // whatever FFmpeg actually produced, rotation already baked in.
+      const dims = await getVideoDimensions(outputPath).catch(() => null);
+
       // Upload compressed file to R2 — keyed per platform so website + telegram
       // variants of the same asset never overwrite each other.
       const outputData = await fs.readFile(outputPath);
       const key = `compressed/${target}/${assetId}.mp4`;
       const compressedUrl = await uploadToR2(outputData, key);
 
-      await updateJob({ progress: 97 });
+      await updateJob({
+        progress: 97,
+        ...(dims ? { width: dims.width, height: dims.height, duration: dims.duration } : {}),
+      });
 
       // For scheduled mode: update the scheduled_posts rows with the compressed URL
       if (rowIds.length > 0) {
@@ -138,6 +148,52 @@ function calcTargetBitrate(durationSeconds: number, targetMb = 85, maxKbps = 250
   return Math.max(200, Math.min(maxKbps, totalKbps - 128));
 }
 
+// Probe display width/height/duration of a video file. If rotation side data
+// survives (±90/270), swap w/h so we always report DISPLAY dimensions.
+function getVideoDimensions(
+  filePath: string,
+): Promise<{ width: number; height: number; duration: number }> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn("ffprobe", [
+      "-v", "error",
+      "-select_streams", "v:0",
+      "-show_entries", "stream=width,height,side_data_list",
+      "-show_entries", "format=duration",
+      "-of", "json",
+      filePath,
+    ]);
+    let out = "";
+    proc.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    proc.on("close", (code) => {
+      if (code !== 0) return reject(new Error(`ffprobe exited ${code}`));
+      try {
+        const parsed = JSON.parse(out) as {
+          streams?: Array<{
+            width?: number;
+            height?: number;
+            side_data_list?: Array<{ rotation?: number }>;
+          }>;
+          format?: { duration?: string };
+        };
+        const stream = parsed.streams?.[0];
+        if (!stream?.width || !stream?.height) {
+          return reject(new Error("ffprobe: no video dimensions found"));
+        }
+        const rotation = Math.abs(stream.side_data_list?.find((s) => s.rotation != null)?.rotation ?? 0);
+        const swap = rotation === 90 || rotation === 270;
+        resolve({
+          width: swap ? stream.height : stream.width,
+          height: swap ? stream.width : stream.height,
+          duration: Math.max(1, Math.round(parseFloat(parsed.format?.duration ?? "0") || 0)),
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+    proc.on("error", reject);
+  });
+}
+
 function getVideoDuration(url: string): Promise<number> {
   return new Promise((resolve, reject) => {
     const proc = spawn("ffprobe", [
@@ -181,6 +237,9 @@ function runFFmpeg(
       "-ar", "44100",
       "-ac", "2",
       "-b:a", "128k",
+      // moov atom at the front — required for Telegram Web inline streaming AND
+      // for fast metadata reads (browser dimension probe) on remote files.
+      "-movflags", "+faststart",
       "-progress", "pipe:1",
       "-y",
       outputPath,

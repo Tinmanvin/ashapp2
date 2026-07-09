@@ -88,14 +88,18 @@ export async function postScheduledItem(
 
         // Server-side FFmpeg (Trigger.dev) — no browser memory limits.
         const jobId = await triggerTelegramCompression(asset.fileUrl, asset.id, [], perVideoTargetMb);
-        const compressedUrl = await waitForTelegramCompression(jobId, onCompressionProgress);
+        const compressed = await waitForTelegramCompression(jobId, onCompressionProgress);
 
-        // Probe the compressed file's dimensions for correct Telegram rendering.
-        const dims = await probeVideoDimensions(compressedUrl);
+        // Dimensions are REQUIRED or portrait videos stretch on Telegram
+        // iOS/macOS. Primary: server-side ffprobe from the compression job.
+        // Fallback: browser probe of the compressed file (older jobs).
+        const dims = compressed.width && compressed.height
+          ? { width: compressed.width, height: compressed.height, duration: compressed.duration ?? 0 }
+          : await probeVideoDimensions(compressed.url);
         tgMedia.push({
-          fileUrl: compressedUrl,
+          fileUrl: compressed.url,
           fileType: 'video',
-          ...(dims ? { width: dims.width, height: dims.height, duration: dims.duration } : {}),
+          ...(dims ? { width: dims.width, height: dims.height, ...(dims.duration ? { duration: dims.duration } : {}) } : {}),
         });
       }
     }

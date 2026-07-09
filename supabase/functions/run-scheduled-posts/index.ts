@@ -83,6 +83,30 @@ serve(async (req) => {
     }
   }
 
+  // Latest known display dimensions per asset, probed server-side by the
+  // compression task. Telegram Bot API uploads don't auto-detect dims —
+  // iOS/macOS render the video card from the message width/height attributes,
+  // so omitting them stretches portrait videos. (See dev lesson 2026-05-28.)
+  const getAssetDims = async (
+    assetIds: string[],
+  ): Promise<Map<string, { width: number; height: number; duration: number | null }>> => {
+    const dims = new Map<string, { width: number; height: number; duration: number | null }>();
+    if (!assetIds.length) return dims;
+    const { data } = await supabase
+      .from("compression_jobs")
+      .select("asset_id, width, height, duration, created_at")
+      .in("asset_id", assetIds)
+      .eq("status", "done")
+      .not("width", "is", null)
+      .order("created_at", { ascending: false });
+    for (const row of data ?? []) {
+      if (!dims.has(row.asset_id)) {
+        dims.set(row.asset_id, { width: row.width, height: row.height, duration: row.duration });
+      }
+    }
+    return dims;
+  };
+
   // ── Process a grouped (or single) Telegram/X post ────────────────────────────
   const processGroup = async (groupRows: PostRow[]) => {
     const ordered = [...groupRows].sort((a, b) => a.position - b.position);
@@ -116,12 +140,22 @@ serve(async (req) => {
           body: ordered.length >= 2 ? { items, caption } : { fileUrl: ordered[0].file_url, fileType: ordered[0].file_type, caption },
         });
       } else {
-        // Telegram. Compressed files are pre-oriented, so no width/height needed.
-        const items = ordered.map((r) => ({ fileUrl: r.file_url, fileType: r.file_type }));
+        // Telegram. Always pass explicit width/height/duration for videos —
+        // without them portrait videos stretch on Telegram iOS/macOS.
+        const videoIds = [...new Set(ordered.filter((r) => r.file_type === "video").map((r) => r.asset_id))];
+        const dimsMap = await getAssetDims(videoIds);
+        const items = ordered.map((r) => {
+          const d = r.file_type === "video" ? dimsMap.get(r.asset_id) : undefined;
+          return {
+            fileUrl: r.file_url,
+            fileType: r.file_type,
+            ...(d ? { width: d.width, height: d.height, ...(d.duration ? { duration: d.duration } : {}) } : {}),
+          };
+        });
         result = await supabase.functions.invoke("post-telegram", {
           body: ordered.length >= 2
             ? { platform, caption, items }
-            : { platform, caption, fileUrl: ordered[0].file_url, fileType: ordered[0].file_type },
+            : { platform, caption, ...items[0] },
         });
       }
 
@@ -147,8 +181,16 @@ serve(async (req) => {
           body: { fileUrl: post.file_url, fileType: post.file_type, caption: post.caption },
         });
       } else if (post.platform.startsWith("telegram")) {
+        const dimsMap = post.file_type === "video" ? await getAssetDims([post.asset_id]) : new Map();
+        const d = dimsMap.get(post.asset_id);
         result = await supabase.functions.invoke("post-telegram", {
-          body: { platform: post.platform, fileUrl: post.file_url, fileType: post.file_type, caption: post.caption },
+          body: {
+            platform: post.platform,
+            fileUrl: post.file_url,
+            fileType: post.file_type,
+            caption: post.caption,
+            ...(d ? { width: d.width, height: d.height, ...(d.duration ? { duration: d.duration } : {}) } : {}),
+          },
         });
       } else if (post.platform === "website") {
         const { data: compJob } = await supabase
