@@ -10,4 +10,10 @@ bucket_name = "ash-media"
 [vars]
 ALLOWED_ORIGIN = "https://ashapp.atlasai-agents.com"
 R2_BUCKET_NAME = "ash-media"
+# Canonical URL prefix. Remains the identity of every stored media URL even
+# after the bucket goes private — see src/lib/mediaUrl.ts in the app.
 R2_PUBLIC_URL = "https://pub-ff0f532390a54125911cf9b775c00b43.r2.dev"
+SUPABASE_URL = "https://fchdjysbvmucbfxcpcst.supabase.co"
+
+# Secrets (wrangler secret put): R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
+# R2_SECRET_ACCESS_KEY, SUPABASE_ANON_KEY, SERVICE_SECRET

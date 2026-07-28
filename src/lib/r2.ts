@@ -6,10 +6,24 @@
  *                        directly to R2, bypassing the Worker timeout entirely
  */
 
+import { supabase } from '@/lib/supabase';
+
 const WORKER_URL = (import.meta.env.VITE_R2_WORKER_URL as string | undefined) ?? '';
-const UPLOAD_SECRET = (import.meta.env.VITE_R2_UPLOAD_SECRET as string | undefined) ?? '';
 
 const SMALL_FILE_LIMIT = 50 * 1024 * 1024; // 50 MB
+
+/**
+ * The Worker used to trust a shared VITE_R2_UPLOAD_SECRET, which shipped in the
+ * public JS bundle — anyone who read it could DELETE the entire media library.
+ * It now takes the caller's Supabase session instead, so uploading and deleting
+ * require a real signed-in user.
+ */
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error('Not signed in — cannot access media storage');
+  return { Authorization: `Bearer ${token}` };
+}
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 
@@ -25,8 +39,8 @@ export async function uploadToR2(
   key: string,
   onProgress?: (pct: number) => void
 ): Promise<string> {
-  if (!WORKER_URL || !UPLOAD_SECRET) {
-    throw new Error('R2 not configured — set VITE_R2_WORKER_URL and VITE_R2_UPLOAD_SECRET in .env.local');
+  if (!WORKER_URL) {
+    throw new Error('R2 not configured — set VITE_R2_WORKER_URL in .env.local');
   }
 
   if (file.size <= SMALL_FILE_LIMIT) {
@@ -42,7 +56,7 @@ async function uploadSmall(file: File | Blob, key: string): Promise<string> {
 
   const res = await fetch(`${WORKER_URL}/upload/small`, {
     method: 'POST',
-    headers: { 'X-Upload-Secret': UPLOAD_SECRET },
+    headers: await authHeaders(),
     body: form,
   });
 
@@ -65,7 +79,7 @@ async function uploadLarge(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Upload-Secret': UPLOAD_SECRET,
+      ...(await authHeaders()),
     },
     body: JSON.stringify({
       key,
@@ -123,16 +137,16 @@ async function uploadLarge(
  * Silently succeeds if the file does not exist.
  */
 export async function deleteFromR2(key: string): Promise<void> {
-  if (!WORKER_URL || !UPLOAD_SECRET) return;
+  if (!WORKER_URL) return;
 
   await fetch(`${WORKER_URL}/file/${encodeURIComponent(key)}`, {
     method: 'DELETE',
-    headers: { 'X-Upload-Secret': UPLOAD_SECRET },
+    headers: await authHeaders(),
   });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 export function isR2Configured(): boolean {
-  return !!WORKER_URL && !!UPLOAD_SECRET;
+  return !!WORKER_URL;
 }
