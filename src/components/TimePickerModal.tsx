@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronUp, ChevronDown, Clock } from 'lucide-react';
 import type { ScheduledAsset } from '@/store/schedulerStore';
+import { MediaImg } from '@/components/MediaImg';
 
 interface Props {
   dateKey: string;
@@ -107,7 +108,7 @@ export default function TimePickerModal({ dateKey, item, onConfirm, onCancel }: 
           <div className="flex items-center gap-3 mb-5">
             <div className="relative h-11 w-11 rounded-xl overflow-hidden bg-white/5 shrink-0">
               {item.assets[0]?.previewUrl ? (
-                <img src={item.assets[0].previewUrl} alt="" className="h-full w-full object-cover" />
+                <MediaImg src={item.assets[0].previewUrl} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center">
                   <Clock className="h-4 w-4 text-muted-foreground/30" />

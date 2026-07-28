@@ -1,5 +1,15 @@
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { fetchFile as ffmpegFetchFile, toBlobURL } from '@ffmpeg/util';
+import { signMediaUrl } from '@/lib/mediaUrl';
+
+/**
+ * The bucket is private, so a canonical media URL is an identifier rather than
+ * something fetchable. Signing here means every caller keeps passing the
+ * canonical URL it already had and none of them need to know about signing.
+ */
+async function fetchFile(url: string) {
+  return ffmpegFetchFile(await signMediaUrl(url));
+}
 
 // Load single-threaded core from CDN — no SharedArrayBuffer / COEP headers needed
 const CORE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';

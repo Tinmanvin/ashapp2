@@ -12,6 +12,7 @@ import { postScheduledItems, type PostStage } from "@/lib/telegramPoster";
 import { scheduleBackgroundCompression } from "@/lib/backgroundCompressor";
 import { supabase } from "@/lib/supabase";
 import TimePickerModal from "@/components/TimePickerModal";
+import { MediaImg } from '@/components/MediaImg';
 
 // ── Platform display helpers ──────────────────────────────────────────────────
 
@@ -89,7 +90,7 @@ function QueueCard({
 
         <div className="relative h-12 w-12 rounded-lg overflow-hidden shrink-0 bg-white/5">
           {cover?.previewUrl ? (
-            <img src={cover.previewUrl} alt={cover.name} className="h-full w-full object-cover" />
+            <MediaImg src={cover.previewUrl} alt={cover.name} className="h-full w-full object-cover" />
           ) : (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground/30 text-micro">
               {cover?.type === "VIDEO" ? "▶" : "IMG"}
@@ -205,7 +206,7 @@ function DayCell({
             >
               <div className="relative h-5 w-5 rounded overflow-hidden shrink-0 bg-white/10">
                 {cover?.previewUrl && (
-                  <img src={cover.previewUrl} alt="" className="h-full w-full object-cover" />
+                  <MediaImg src={cover.previewUrl} alt="" className="h-full w-full object-cover" />
                 )}
                 {isGroup && (
                   <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-[8px] font-bold text-white">

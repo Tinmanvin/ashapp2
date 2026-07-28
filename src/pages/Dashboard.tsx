@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useSchedulerStore } from "@/store/schedulerStore";
+import { MediaImg } from '@/components/MediaImg';
 
 // ── Animation variants ────────────────────────────────────────────────────────
 
@@ -294,7 +295,7 @@ export default function Dashboard() {
             <div className="hidden lg:flex items-center gap-4">
               <div className="relative h-32 w-48 rounded-xl card-elevated overflow-hidden">
                 {nextPost?.previewUrl ? (
-                  <img
+                  <MediaImg
                     src={nextPost.previewUrl}
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover"
@@ -438,7 +439,7 @@ export default function Dashboard() {
                 className="group relative flex-shrink-0 w-36 h-24 rounded-xl card-elevated overflow-hidden cursor-pointer"
               >
                 {asset.previewUrl ? (
-                  <img
+                  <MediaImg
                     src={asset.previewUrl}
                     alt={asset.name}
                     className="absolute inset-0 h-full w-full object-cover"
@@ -522,7 +523,7 @@ export default function Dashboard() {
                 {/* Thumbnail */}
                 <div className="h-10 w-10 rounded-lg card-elevated overflow-hidden flex items-center justify-center shrink-0">
                   {post.previewUrl ? (
-                    <img
+                    <MediaImg
                       src={post.previewUrl}
                       alt=""
                       className="h-full w-full object-cover"

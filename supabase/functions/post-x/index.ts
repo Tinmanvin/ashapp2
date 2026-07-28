@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createHmac } from "node:crypto";
 import { requireUserOrService } from "../_shared/auth.ts";
+import { signMediaUrl } from "../_shared/media.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
@@ -116,13 +117,15 @@ async function pollMediaStatus(mediaId: string): Promise<void> {
 
 /** Fetch a file from R2/Storage and upload it to X, returning its media_id. */
 async function uploadMedia(fileUrl: string, fileType: "image" | "video"): Promise<string> {
-  const fileRes = await fetch(fileUrl);
+  // The bucket is private — mint a short-lived signed URL before reading bytes.
+  const fileRes = await fetch(await signMediaUrl(fileUrl));
   if (!fileRes.ok) throw new Error(`Failed to fetch file: ${fileRes.status} ${fileRes.statusText}`);
   const fileBytes  = new Uint8Array(await fileRes.arrayBuffer());
   const totalBytes = fileBytes.length;
 
   if (fileType === "image") {
-    const ext       = fileUrl.split(".").pop()?.toLowerCase();
+    // From the canonical URL — a signed URL ends in the signature, not the ext.
+    const ext       = fileUrl.split("?")[0].split(".").pop()?.toLowerCase();
     const mediaType = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "image/jpeg";
     const mediaId = await mediaInit(totalBytes, mediaType, "tweet_image");
     await mediaAppend(mediaId, fileBytes, 0);

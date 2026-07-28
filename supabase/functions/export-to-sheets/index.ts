@@ -22,6 +22,17 @@ import { requireUser } from '../_shared/auth.ts'
 
 const SPREADSHEET_ID = '1X7xRnML2HQkHUx4a9SZzDUMOYkG0tWzFDUFhyu75Pms'
 const SHEET_NAME = 'Master Content Library'
+const APP_URL = 'https://ashapp.atlasai-agents.com'
+
+/**
+ * "File Link" used to be the raw R2 URL, which meant a working download for
+ * anyone who ever saw the sheet. Media is private now, so the column points into
+ * the Hub instead: signed in, it opens the asset; signed out, it is a login
+ * wall. Rows exported before this change keep whatever they already contain.
+ */
+function assetLink(assetId: string): string {
+  return `${APP_URL}/library?asset=${assetId}`
+}
 const SHEETS_SCOPE = 'https://www.googleapis.com/auth/spreadsheets'
 
 // ── Column mappings ───────────────────────────────────────────────────────────
@@ -273,7 +284,7 @@ Deno.serve(async (req) => {
       '',                                                           // Monetisation Role
       sheetStatus,                                                  // Status
       '',                                                           // Editor
-      asset.file_url ?? '',                                         // File Link
+      assetLink(asset.id),                                          // File Link
       'Done',                                                       // Thumbnail Status
       'Written',                                                    // Caption Status
       approvalStatus,                                               // Approval Status

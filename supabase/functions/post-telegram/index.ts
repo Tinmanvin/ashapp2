@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { requireUserOrService } from "../_shared/auth.ts";
+import { signMediaUrl } from "../_shared/media.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
@@ -42,13 +43,16 @@ function json(body: unknown, status = 200) {
 }
 
 async function fetchAsFile(item: GroupItem, idx: number): Promise<File> {
-  const res = await fetch(item.fileUrl);
+  // The bucket is private — mint a short-lived signed URL before reading bytes.
+  const res = await fetch(await signMediaUrl(item.fileUrl));
   if (!res.ok) throw new Error(`Failed to fetch file ${idx}: ${res.status} ${res.statusText}`);
   const blob = await res.blob();
   const isVideo = item.fileType === "video";
   // Always set explicit MIME — R2 may serve application/octet-stream which makes
   // Telegram treat videos as documents.
   const contentType = isVideo ? "video/mp4" : (blob.type || "image/jpeg");
+  // Derived from the canonical URL: a signed URL's query string would otherwise
+  // end up in the filename Telegram displays.
   const rawName = item.fileUrl.split("/").pop()?.split("?")[0] ?? "";
   const filename = rawName || (isVideo ? `file${idx}.mp4` : `file${idx}.jpg`);
   return new File([blob], filename, { type: contentType });

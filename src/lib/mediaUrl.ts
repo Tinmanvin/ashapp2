@@ -79,6 +79,10 @@ export function toCanonical(url: string | null | undefined): string {
   return key ? `${PUBLIC_BASE}/${key}` : url;
 }
 
+export function canonicalFromKey(key: string): string {
+  return `${PUBLIC_BASE}/${key}`;
+}
+
 /** Publicly readable thumbnail URL — the only media path that needs no auth. */
 export function thumbPublicUrl(url: string | null | undefined): string {
   const key = mediaKey(url);

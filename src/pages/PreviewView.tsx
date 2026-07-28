@@ -16,6 +16,8 @@ import { useProcessingStore } from "@/store/processingStore";
 import { useSchedulerStore } from "@/store/schedulerStore";
 import { supabase } from "@/lib/supabase";
 import type { UploadedAsset } from "@/hooks/useFileUpload";
+import { canonicalFromKey, mediaKey } from '@/lib/mediaUrl';
+import { useSignedMedia } from '@/hooks/useSignedMedia';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -35,11 +37,20 @@ const TELEGRAM_REACTIONS = ["👍 42", "❤️ 128", "🔥 18"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Full-res for images; thumbnail poster for videos (can't play in <img>)
+/**
+ * Full-res for images; thumbnail poster for videos (can't play in <img>).
+ *
+ * Derived from the storage KEY, not the URL. Doing the thumbs→files swap on the
+ * URL text worked while media was public, but a signed URL carries a signature
+ * bound to the original key — rewriting the path inside it produces a URL that
+ * always 403s. Returns canonical; the caller signs it.
+ */
 function fullResSrc(asset: UploadedAsset): string {
   if (asset.type !== "IMAGE") return asset.previewUrl;
-  const full = asset.previewUrl.replace("/thumbs/", "/files/").replace(/\.jpg$/, "");
-  return full || asset.previewUrl;
+  const key = mediaKey(asset.previewUrl);
+  if (!key) return asset.previewUrl;
+  const fullKey = key.replace(/^thumbs\//, "files/").replace(/\.jpg$/, "");
+  return canonicalFromKey(fullKey) || asset.previewUrl;
 }
 
 const MEDIA_RADIUS: React.CSSProperties = {
@@ -76,7 +87,7 @@ function VideoPlayOverlay({ isVideo, children }: { isVideo: boolean; children: R
 // ── Single media block (used when a post has exactly one asset) ─────────────────
 
 function MediaBlock({ asset, platform = "telegram" }: { asset: UploadedAsset; platform?: "x" | "telegram" }) {
-  const src = fullResSrc(asset);
+  const src = useSignedMedia(fullResSrc(asset));
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [src]);
 
@@ -106,7 +117,7 @@ function MediaBlock({ asset, platform = "telegram" }: { asset: UploadedAsset; pl
 
 function GridTile({ asset }: { asset: UploadedAsset }) {
   const [failed, setFailed] = useState(false);
-  const src = asset.previewUrl || fullResSrc(asset);
+  const src = useSignedMedia(asset.previewUrl || fullResSrc(asset));
   return (
     <VideoPlayOverlay isVideo={asset.type === "VIDEO" || asset.type === "CLIP"}>
       <div className="w-full h-full bg-[#1d2733]">
@@ -273,7 +284,7 @@ function TelegramPost({ assets, caption }: { assets: UploadedAsset[]; caption: s
 // ── Website preview (cover asset — website is a single-item funnel) ─────────────
 
 function WebsitePreview({ asset, caption }: { asset: UploadedAsset; caption: string }) {
-  const src = fullResSrc(asset);
+  const src = useSignedMedia(fullResSrc(asset));
   const [failed, setFailed] = useState(false);
   useEffect(() => { setFailed(false); }, [src]);
   const isPortrait = asset.ratio === "portrait";

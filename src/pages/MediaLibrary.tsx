@@ -24,6 +24,7 @@ import DrivePickerModal from "@/components/DrivePickerModal";
 import WebsiteSettingsModal from "@/components/WebsiteSettingsModal";
 import { useProcessingStore, type WebsiteConfig } from "@/store/processingStore";
 import { DISPLAY_NAME_TO_PLATFORM } from "@/lib/captionPrompts";
+import { MediaImg } from '@/components/MediaImg';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -782,7 +783,7 @@ export default function MediaLibrary() {
                       >
                         <div className="w-full card-elevated relative h-full">
                           {asset.previewUrl && (
-                            <img
+                            <MediaImg
                               src={asset.previewUrl}
                               alt={asset.name}
                               className="absolute inset-0 w-full h-full object-cover"
@@ -895,7 +896,7 @@ export default function MediaLibrary() {
                         className="aspect-square rounded-lg card-elevated relative group cursor-pointer overflow-hidden"
                       >
                         {asset?.previewUrl ? (
-                          <img
+                          <MediaImg
                             src={asset.previewUrl}
                             alt=""
                             className="absolute inset-0 w-full h-full object-cover"

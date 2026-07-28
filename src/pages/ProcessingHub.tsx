@@ -15,6 +15,7 @@ import { useProcessingStore } from "@/store/processingStore";
 import { supabase } from "@/lib/supabase";
 import { generateCaption } from "@/lib/openai";
 import { PLATFORM_META, type Platform } from "@/lib/captionPrompts";
+import { MediaImg } from '@/components/MediaImg';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -218,7 +219,7 @@ function ProcessingHubInner() {
             {selectedAssets.slice(0, 9).map((a, i) => (
               <div key={a.id} className="relative aspect-square rounded-lg overflow-hidden bg-white/5">
                 {a.previewUrl ? (
-                  <img src={a.previewUrl} alt={a.name} className="h-full w-full object-cover" />
+                  <MediaImg src={a.previewUrl} alt={a.name} className="h-full w-full object-cover" />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center">
                     <ImageIcon className="h-4 w-4 text-muted-foreground/30" />
@@ -290,7 +291,7 @@ function ProcessingHubInner() {
                   {/* Cover thumbnail */}
                   <div className="relative h-20 w-20 rounded-lg card-elevated flex items-center justify-center shrink-0 overflow-hidden">
                     {cover?.previewUrl ? (
-                      <img src={cover.previewUrl} alt={cover.name} className="h-full w-full object-cover" />
+                      <MediaImg src={cover.previewUrl} alt={cover.name} className="h-full w-full object-cover" />
                     ) : (
                       <ImageIcon className="h-6 w-6 text-muted-foreground/30" />
                     )}

@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireUserOrService } from "../_shared/auth.ts";
+import { signMediaUrl, thumbPublicUrl } from "../_shared/media.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
@@ -69,7 +70,9 @@ serve(async (req) => {
       tags:            tags ?? [],
       category,
       playback_policy: playbackPolicy,
-      thumbnail_url:   thumbnailUrl ?? "",
+      // The website stores and hotlinks this indefinitely, so it must be the
+      // never-expiring public thumbnail route rather than a signed URL.
+      thumbnail_url:   thumbPublicUrl(thumbnailUrl),
       external_id:     externalId,
       source:          "ContentHub",
     };
@@ -109,7 +112,8 @@ serve(async (req) => {
     // Step 2: stream the file to upload_url. Log failures but don't throw —
     // the metadata POST already registered the content so the post goes through
     // regardless. The website processes the video via its own pipeline.
-    const fileRes = await fetch(fileUrl);
+    // The bucket is private — mint a short-lived signed URL before reading bytes.
+    const fileRes = await fetch(await signMediaUrl(fileUrl));
     if (!fileRes.ok) {
       console.warn(`[post-website] Failed to fetch file (${fileRes.status}) — content ${content_id} already registered`);
       return new Response(

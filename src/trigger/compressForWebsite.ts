@@ -1,4 +1,5 @@
 import { task } from "@trigger.dev/sdk";
+import { signMediaUrlForJob } from "./media";
 import { spawn } from "child_process";
 import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs/promises";
@@ -45,8 +46,11 @@ export const compressForWebsite = task({
     const outputPath = path.join(tmpDir, "output.mp4");
 
     try {
-      // Download to /tmp first so FFmpeg works on a local file (no moov-atom seek issue)
-      await downloadFile(fileUrl, inputPath, async (pct) => {
+      // Download to /tmp first so FFmpeg works on a local file (no moov-atom seek issue).
+      // The bucket is private, and a 4K source on a slow link can run for a long
+      // time — this URL is signed for 12h so the download cannot expire mid-flight.
+      const sourceUrl = await signMediaUrlForJob(fileUrl);
+      await downloadFile(sourceUrl, inputPath, async (pct) => {
         const mapped = Math.round(pct * 25); // 0–25%
         await updateJob({ progress: mapped });
       });
@@ -276,7 +280,7 @@ function runFFmpeg(
 
 async function uploadToR2(data: Buffer, key: string): Promise<string> {
   const workerUrl = process.env.R2_WORKER_URL!;
-  const secret = process.env.R2_UPLOAD_SECRET!;
+  const secret = process.env.R2_SERVICE_SECRET!;
 
   if (data.length <= 50 * 1024 * 1024) {
     const form = new FormData();
@@ -285,7 +289,7 @@ async function uploadToR2(data: Buffer, key: string): Promise<string> {
 
     const res = await fetch(`${workerUrl}/upload/small`, {
       method: "POST",
-      headers: { "X-Upload-Secret": secret },
+      headers: { "X-Service-Secret": secret },
       body: form,
     });
     if (!res.ok) throw new Error(`R2 small upload failed (${res.status}): ${await res.text()}`);
@@ -296,7 +300,7 @@ async function uploadToR2(data: Buffer, key: string): Promise<string> {
   // Large: presigned PUT
   const presignRes = await fetch(`${workerUrl}/presign`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Upload-Secret": secret },
+    headers: { "Content-Type": "application/json", "X-Service-Secret": secret },
     body: JSON.stringify({ key, contentType: "video/mp4" }),
   });
   if (!presignRes.ok) {
