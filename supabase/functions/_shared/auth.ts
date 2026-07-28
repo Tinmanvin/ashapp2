@@ -70,6 +70,33 @@ export async function requireUser(req: Request): Promise<AuthedUser | Response> 
 }
 
 /**
+ * Accept EITHER a signed-in user OR an internal service-role call.
+ *
+ * The posting functions are reached two ways:
+ *   1. Browser "Post Now"      → user session JWT
+ *   2. run-scheduled-posts     → functions.invoke() with the SERVICE ROLE key
+ *
+ * A service-role key resolves to NO user, so requireUser() alone would reject
+ * path 2 and silently kill all scheduled posting. Both paths are legitimate;
+ * the public anon key is still rejected because it is neither.
+ */
+export async function requireUserOrService(
+  req: Request,
+): Promise<AuthedUser | { userId: null; service: true } | Response> {
+  const header = req.headers.get("Authorization") ?? "";
+  const token = header.replace(/^Bearer\s+/i, "").trim();
+
+  if (!token) return jsonResponse(req, { error: "Unauthorized" }, 401);
+
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (serviceKey && constantTimeEquals(token, serviceKey)) {
+    return { userId: null, service: true };
+  }
+
+  return await requireUser(req);
+}
+
+/**
  * Service-to-service guard for the pg_cron scheduler.
  * The secret lives in `public.cron_secrets` (admin-only RLS) and is compared
  * with a constant-time check so the endpoint can't be probed byte by byte.

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createHmac } from "node:crypto";
-import { requireUser } from "../_shared/auth.ts";
+import { requireUserOrService } from "../_shared/auth.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
@@ -164,7 +164,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
   // Signed-in users only — otherwise anyone could tweet as Ash.
-  const auth = await requireUser(req);
+  const auth = await requireUserOrService(req);
   if (auth instanceof Response) return auth;
 
   try {

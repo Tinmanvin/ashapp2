@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { requireUser } from "../_shared/auth.ts";
+import { requireUserOrService } from "../_shared/auth.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
@@ -60,7 +60,7 @@ serve(async (req) => {
   // Must be a signed-in user. Rejects anonymous callers AND the bare anon key,
   // which is public in the browser bundle. Without this, anyone on the internet
   // could publish arbitrary media to Ash's Telegram channels.
-  const auth = await requireUser(req);
+  const auth = await requireUserOrService(req);
   if (auth instanceof Response) return auth;
 
   try {

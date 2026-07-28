@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { requireUser } from "../_shared/auth.ts";
+import { requireUserOrService } from "../_shared/auth.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
@@ -16,7 +16,7 @@ serve(async (req) => {
 
   // Gateway verify_jwt was already on here, but that alone accepts the public
   // anon key — resolve to a real user as well.
-  const auth = await requireUser(req);
+  const auth = await requireUserOrService(req);
   if (auth instanceof Response) return auth;
 
   try {
