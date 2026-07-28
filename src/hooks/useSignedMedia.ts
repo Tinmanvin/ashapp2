@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { mediaKey, signMediaUrl, signMediaUrls } from '@/lib/mediaUrl';
+import { mediaKey, signMediaUrl, signMediaUrls, thumbPublicUrl } from '@/lib/mediaUrl';
 
 /**
  * Turn a canonical media URL into one the browser can load.
@@ -51,8 +51,14 @@ export function useSignedMediaMap(urls: (string | null | undefined)[]): Map<stri
   return map;
 }
 
-/** Non-R2 URLs are usable as-is; everything else must be signed first. */
+/**
+ * URLs that are already loadable, resolved synchronously so they never blank
+ * out: anything that is not ours, plus thumbnails, which the Worker serves
+ * unauthenticated and which therefore need no round trip.
+ */
 function passThrough(url: string | null | undefined): string {
   if (!url) return '';
-  return mediaKey(url) ? '' : url;
+  const key = mediaKey(url);
+  if (!key) return url;
+  return key.startsWith('thumbs/') ? thumbPublicUrl(url) : '';
 }

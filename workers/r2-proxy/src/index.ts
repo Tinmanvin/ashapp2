@@ -16,7 +16,7 @@
  * See auth.ts for why "is this a valid JWT" is not a sufficient check.
  */
 
-import { authenticate, type Caller } from './auth';
+import { authenticate, filterOwnedKeys, type Caller } from './auth';
 import type { Env } from './env';
 import { isThumbKey, isValidKey } from './keys';
 import { presign, r2Client } from './sign';
@@ -95,6 +95,11 @@ async function signRead(request: Request, caller: Caller, env: Env): Promise<Res
     return json({ error: `Invalid key: ${invalid[0]}` }, 400, env);
   }
 
+  // Authenticated is not the same as authorized — a signed-in stranger must not
+  // be able to re-sign a URL that leaked out of someone else's library.
+  const allowed = await filterOwnedKeys(unique, caller, env);
+  if (allowed.length === 0) return json({ error: 'Forbidden' }, 403, env);
+
   const ceiling = caller.kind === 'service' ? MAX_EXPIRY_SERVICE : MAX_EXPIRY_USER;
   const requested = typeof body.expiresIn === 'number' ? body.expiresIn : DEFAULT_EXPIRY;
   const expiresIn = Math.min(Math.max(Math.floor(requested), 60), ceiling);
@@ -102,7 +107,7 @@ async function signRead(request: Request, caller: Caller, env: Env): Promise<Res
   try {
     const client = r2Client(env);
     const signed = await Promise.all(
-      unique.map(async (key) => [key, await presign(client, env, key, 'GET', expiresIn)] as const),
+      allowed.map(async (key) => [key, await presign(client, env, key, 'GET', expiresIn)] as const),
     );
 
     return json(
@@ -116,7 +121,12 @@ async function signRead(request: Request, caller: Caller, env: Env): Promise<Res
 }
 
 async function uploadSmall(request: Request, env: Env): Promise<Response> {
-  const formData = await request.formData();
+  let formData: FormData;
+  try {
+    formData = await request.formData();
+  } catch {
+    return json({ error: 'Expected multipart form data' }, 400, env);
+  }
   const file = formData.get('file') as File | null;
   const key = (formData.get('key') as string | null) ?? '';
 

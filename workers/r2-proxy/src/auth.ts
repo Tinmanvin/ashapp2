@@ -20,8 +20,45 @@
 import type { Env } from './env';
 
 export type Caller =
-  | { kind: 'user'; userId: string }
+  | { kind: 'user'; userId: string; token: string }
   | { kind: 'service' };
+
+/**
+ * Narrow a set of storage keys to the ones this caller is allowed to read.
+ *
+ * Delegated to Postgres rather than reimplemented here: the RPC runs under the
+ * caller's own JWT, so ownership follows the same RLS policies as the rest of
+ * the app — including admin access — and there is no second rule set to drift.
+ *
+ * Fails closed. A signing endpoint that authorized everything on a network
+ * blip would be worse than one that briefly stops serving images.
+ */
+export async function filterOwnedKeys(
+  keys: string[],
+  caller: Caller,
+  env: Env,
+): Promise<string[]> {
+  if (caller.kind === 'service') return keys;
+
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/filter_owned_media_keys`, {
+      method: 'POST',
+      headers: {
+        apikey: env.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${caller.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ keys }),
+    });
+
+    if (!res.ok) return [];
+
+    const allowed = await res.json() as unknown;
+    return Array.isArray(allowed) ? allowed.filter((k): k is string => typeof k === 'string') : [];
+  } catch {
+    return [];
+  }
+}
 
 /** Positive-only token cache, scoped to this isolate. Failures are never cached. */
 const TOKEN_CACHE = new Map<string, { userId: string; expiresAt: number }>();
@@ -38,7 +75,7 @@ export async function authenticate(request: Request, env: Env): Promise<Caller |
 
   const cached = TOKEN_CACHE.get(token);
   if (cached && cached.expiresAt > Date.now()) {
-    return { kind: 'user', userId: cached.userId };
+    return { kind: 'user', userId: cached.userId, token };
   }
 
   const userId = await resolveUser(token, env);
@@ -47,7 +84,7 @@ export async function authenticate(request: Request, env: Env): Promise<Caller |
   TOKEN_CACHE.set(token, { userId, expiresAt: Date.now() + TOKEN_CACHE_TTL_MS });
   if (TOKEN_CACHE.size > 500) pruneCache();
 
-  return { kind: 'user', userId };
+  return { kind: 'user', userId, token };
 }
 
 async function resolveUser(token: string, env: Env): Promise<string | null> {

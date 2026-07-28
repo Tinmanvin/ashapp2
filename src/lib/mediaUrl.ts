@@ -117,6 +117,15 @@ export async function signMediaUrls(urls: (string | null | undefined)[]): Promis
       continue;
     }
 
+    // Thumbnails are served unauthenticated by the Worker (Ash's website
+    // hotlinks them), so they need no signature. Resolving them here keeps the
+    // whole library grid off the signing path and covers custom thumbnails,
+    // which have no database row to check ownership against.
+    if (key.startsWith('thumbs/')) {
+      out.set(url, thumbPublicUrl(url));
+      continue;
+    }
+
     const hit = cache.get(key);
     if (hit && hit.expiresAt - REFRESH_MARGIN_MS > Date.now()) {
       out.set(url, hit.url);
