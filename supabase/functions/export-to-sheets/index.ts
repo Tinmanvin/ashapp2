@@ -18,6 +18,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireUser } from '../_shared/auth.ts'
 
 const SPREADSHEET_ID = '1X7xRnML2HQkHUx4a9SZzDUMOYkG0tWzFDUFhyu75Pms'
 const SHEET_NAME = 'Master Content Library'
@@ -122,12 +123,18 @@ async function getAccessToken(serviceAccountJson: string): Promise<string> {
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': 'https://ashapp.atlasai-agents.com',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Vary': 'Origin',
 }
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+
+  // Signed-in users only. This endpoint previously executed its full export
+  // for completely anonymous callers.
+  const auth = await requireUser(req)
+  if (auth instanceof Response) return auth
 
   const saJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON')
   if (!saJson) {

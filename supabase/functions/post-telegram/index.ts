@@ -1,8 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireUser } from "../_shared/auth.ts";
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
 const BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") ?? "";
@@ -54,6 +56,12 @@ async function fetchAsFile(item: GroupItem, idx: number): Promise<File> {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  // Must be a signed-in user. Rejects anonymous callers AND the bare anon key,
+  // which is public in the browser bundle. Without this, anyone on the internet
+  // could publish arbitrary media to Ash's Telegram channels.
+  const auth = await requireUser(req);
+  if (auth instanceof Response) return auth;
 
   try {
     const payload = await req.json() as {

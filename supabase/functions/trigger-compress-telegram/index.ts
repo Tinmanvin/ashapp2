@@ -1,13 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireUser } from "../_shared/auth.ts";
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  const auth = await requireUser(req);
+  if (auth instanceof Response) return auth;
 
   try {
     const { fileUrl, assetId, rowIds = [], targetMb } = await req.json() as {
@@ -25,7 +30,9 @@ serve(async (req) => {
     // Create the job row — the task updates it as it progresses
     const { data: job, error: jobErr } = await supabase
       .from("compression_jobs")
-      .insert({ asset_id: assetId, row_ids: rowIds, status: "queued", progress: 0 })
+      // owner_id must be stamped here — compression_jobs is now owner-scoped by
+      // RLS, and without it the browser could not poll its own job's progress.
+      .insert({ asset_id: assetId, row_ids: rowIds, status: "queued", progress: 0, owner_id: auth.userId })
       .select("id")
       .single();
 

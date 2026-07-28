@@ -1,9 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireUser } from "../_shared/auth.ts";
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
 const API_KEY  = (Deno.env.get("WEBSITE_API_KEY") ?? "").trim();
@@ -11,6 +13,11 @@ const BASE_URL = "https://blackmagicmodel.com";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  // Gateway verify_jwt was already on here, but that alone accepts the public
+  // anon key — resolve to a real user as well.
+  const auth = await requireUser(req);
+  if (auth instanceof Response) return auth;
 
   try {
     const { fileUrl, title, externalId, categories, tags, thumbnailUrl, caption } = await req.json() as {

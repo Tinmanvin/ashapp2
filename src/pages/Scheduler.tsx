@@ -485,18 +485,14 @@ export default function Scheduler() {
     if (unexportedCount === 0) return;
     toast.loading("Exporting to Master Content Library…", { id: "export" });
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/export-to-sheets`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            "Content-Type": "application/json",
-          },
-        }
+      // Was a raw fetch sending the PUBLIC anon key. invoke() attaches the
+      // signed-in user's session JWT, which is what the function now requires.
+      const { data: result, error } = await supabase.functions.invoke(
+        "export-to-sheets",
+        { body: {} }
       );
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.error ?? "Export failed");
+      if (error) throw new Error(error.message);
+      if (result?.error) throw new Error(result.error);
       toast.success(`Exported ${result.pushed} item${result.pushed === 1 ? "" : "s"} to Google Sheets`, { id: "export" });
       setUnexportedCount(0);
     } catch (err) {

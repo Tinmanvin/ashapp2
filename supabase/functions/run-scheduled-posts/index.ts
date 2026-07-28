@@ -1,9 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireCronSecret } from "../_shared/auth.ts";
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
+  "Vary": "Origin",
 };
 
 interface PostRow {
@@ -22,6 +24,12 @@ interface PostRow {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  // Scheduler-only endpoint. pg_cron presents a shared secret (see the
+  // `cron_secrets` table). It previously authenticated with the PUBLIC anon
+  // key, so anyone could drive the posting pipeline on demand.
+  const cron = await requireCronSecret(req);
+  if (cron instanceof Response) return cron;
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,

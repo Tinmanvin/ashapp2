@@ -1,9 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createHmac } from "node:crypto";
+import { requireUser } from "../_shared/auth.ts";
 
 const CORS = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": "https://ashapp.atlasai-agents.com",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Vary": "Origin",
 };
 
 const API_KEY             = (Deno.env.get("X_API_KEY")             ?? "").trim();
@@ -160,6 +162,10 @@ function normalizeCaption(text: string): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
+
+  // Signed-in users only — otherwise anyone could tweet as Ash.
+  const auth = await requireUser(req);
+  if (auth instanceof Response) return auth;
 
   try {
     const payload = await req.json() as {
