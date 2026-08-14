@@ -31,10 +31,21 @@ serve(async (req) => {
   const cron = await requireCronSecret(req);
   if (cron instanceof Response) return cron;
 
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    serviceKey,
   );
+
+  // The posting functions authorise a service call by comparing the bearer
+  // token byte-for-byte against their own SUPABASE_SERVICE_ROLE_KEY. Left to
+  // itself the client resolves its own token, which is not guaranteed to be
+  // that same value — when the project moved to the new `sb_secret_` API key
+  // format the two drifted apart and every invoke below started coming back
+  // 401, silently killing all scheduled posting. Sending the header
+  // explicitly keeps both sides on the one env var.
+  const authHeaders = { Authorization: `Bearer ${serviceKey}` };
 
   // Find all pending posts whose scheduled_at has passed.
   // Limit is generous so a group (up to 10 assets × several platforms) is never split.
@@ -145,6 +156,7 @@ serve(async (req) => {
       if (platform === "x") {
         const items = ordered.map((r) => ({ fileUrl: r.file_url, fileType: r.file_type }));
         result = await supabase.functions.invoke("post-x", {
+          headers: authHeaders,
           body: ordered.length >= 2 ? { items, caption } : { fileUrl: ordered[0].file_url, fileType: ordered[0].file_type, caption },
         });
       } else {
@@ -161,6 +173,7 @@ serve(async (req) => {
           };
         });
         result = await supabase.functions.invoke("post-telegram", {
+          headers: authHeaders,
           body: ordered.length >= 2
             ? { platform, caption, items }
             : { platform, caption, ...items[0] },
@@ -186,12 +199,14 @@ serve(async (req) => {
 
       if (post.platform === "x") {
         result = await supabase.functions.invoke("post-x", {
+          headers: authHeaders,
           body: { fileUrl: post.file_url, fileType: post.file_type, caption: post.caption },
         });
       } else if (post.platform.startsWith("telegram")) {
         const dimsMap = post.file_type === "video" ? await getAssetDims([post.asset_id]) : new Map();
         const d = dimsMap.get(post.asset_id);
         result = await supabase.functions.invoke("post-telegram", {
+          headers: authHeaders,
           body: {
             platform: post.platform,
             fileUrl: post.file_url,
@@ -218,6 +233,7 @@ serve(async (req) => {
         const fileUrl = compJob?.compressed_url || post.file_url;
         const wc = post.website_config ?? {};
         result = await supabase.functions.invoke("post-website", {
+          headers: authHeaders,
           body: {
             fileUrl,
             title: (wc as { title?: string }).title || post.asset_name,
